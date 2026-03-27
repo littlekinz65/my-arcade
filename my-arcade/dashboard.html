@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Arcade Dashboard</title>
+    <link rel="stylesheet" href="css/style.css">
+    <style>
+        /* A little extra styling just for the leaderboard */
+        .leaderboard-container {
+            margin-top: 40px;
+            background-color: #0f3460;
+            padding: 20px;
+            border-radius: 8px;
+            text-align: left;
+        }
+        .leaderboard-container h3 {
+            margin-top: 0;
+            color: #43bccd;
+            border-bottom: 2px solid #16213e;
+            padding-bottom: 10px;
+        }
+    </style>
+</head>
+<body>
+
+    <div id="dashboard-container">
+        <header>
+            <h1>Choose Your Game</h1>
+            <button id="logout-btn" class="secondary-btn">Log Out</button>
+        </header>
+
+        <div class="game-grid">
+            <div class="game-card">
+                <h2>Snake</h2>
+                <p>The classic retro game. Eat food, grow longer, don't hit the walls!</p>
+                <a href="snake.html" class="play-btn">Play Snake</a>
+            </div>
+
+            <div class="game-card">
+                <h2>Calculator</h2>
+                <p>Crunch some numbers. Your calculation history is saved securely.</p>
+                <a href="calculator.html" class="play-btn">Open Calculator</a>
+            </div>
+        </div>
+
+        <div class="leaderboard-container">
+            <h3>🏆 Global Snake Leaderboard</h3>
+            <div id="leaderboard-list">
+                <p style="color: #888;">Loading top scores...</p>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="js/supabase.js"></script>
+    <script src="js/auth.js"></script>
+    <script src="js/dashboard.js"></script>
+</body>
+</html>
