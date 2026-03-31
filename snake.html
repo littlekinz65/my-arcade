@@ -155,7 +155,7 @@
         <div id="overlay">
             <h1 style="color:var(--danger); margin-bottom:5px; font-size: 2.5rem;">MISSION FAILED</h1>
             <p id="final-stats" style="text-align: center; line-height: 1.6; color: #ccc; font-size: 1.1rem;"></p>
-            <button onclick="unlockAndReset()" class="btn" style="background:var(--accent); margin-top:20px; padding: 12px 40px; width:auto;">Try Again</button>
+            <button onclick="unlockAndReset()" class="btn" style="background:var(--accent); margin-top:20px; padding: 12px 40px; width:auto;">Adjust Settings</button>
         </div>
     </main>
 
@@ -333,8 +333,7 @@
         overlay.style.display = 'flex';
 
         if (typeof window.triggerDatabaseSave === 'function') {
-            // Speed is handled by the game, but omitted from the DB save
-            window.triggerDatabaseSave({ score, mode, sizeText, skulls, color, shape, innerWalls });
+            window.triggerDatabaseSave({ score, mode, sizeText, skulls, color, shape, speed, innerWalls });
         }
     }
 
@@ -391,17 +390,19 @@
                     return;
                 }
 
+                // Gracefully handles missing database columns when displaying the leaderboard
                 scoreboard.innerHTML = data.map(entry => {
                     let user = entry.user_email ? String(entry.user_email).split('@')[0] : 'Guest';
                     let mode = entry.wall_mode ? String(entry.wall_mode).toUpperCase() : 'N/A';
-                    let size = entry.arena_size || 'N/A';
+                    let size = entry.arena_size || 'Std';
                     let skulls = entry.maze_complexity != null ? entry.maze_complexity : '0';
+                    let spd = entry.snake_speed != null ? entry.snake_speed : '?';
 
                     return `
                     <div class="score-item">
                         <strong>${user}</strong> 
                         <span style="float:right; color:var(--success); font-weight:bold">${entry.score}</span>
-                        <div class="score-meta">${size} • ${mode} • ${skulls} Skulls</div>
+                        <div class="score-meta">${size} • ${mode} • ${skulls} Skulls • Spd: ${spd}</div>
                     </div>
                     `;
                 }).join('');
@@ -411,12 +412,11 @@
         }
 
         window.triggerDatabaseSave = async function(gameData) {
-            if (!window.supabaseClient) {
-                console.warn("Supabase client not connected.");
-                return;
-            }
+            if (!window.supabaseClient) return;
+            
             try {
-                const { error } = await window.supabaseClient.from('scores').insert([{
+                // ATTEMPT 1: Try to save the full rich data payload
+                let { error } = await window.supabaseClient.from('scores').insert([{
                     user_email: 'vinothraja@example.com',
                     game: 'Snake',
                     score: gameData.score,
@@ -425,18 +425,32 @@
                     wall_mode: gameData.mode,
                     maze_complexity: parseInt(gameData.skulls),
                     arena_size: gameData.sizeText,
-                    // Omitted snake_speed to match your current live database schema
+                    snake_speed: parseInt(gameData.speed),
                     inner_walls: JSON.stringify(gameData.innerWalls)
                 }]);
                 
+                // ERROR 42703 MEANS "COLUMN DOES NOT EXIST"
+                if (error && error.code === '42703') {
+                    console.warn("Missing columns detected. Falling back to Basic Save Mode...");
+                    
+                    // ATTEMPT 2: Fallback to bare minimum save (Guaranteed to work)
+                    const fallbackResult = await window.supabaseClient.from('scores').insert([{
+                        user_email: 'vinothraja@example.com',
+                        game: 'Snake',
+                        score: gameData.score
+                    }]);
+                    
+                    error = fallbackResult.error;
+                }
+                
                 if (error) {
-                    console.error("Supabase Error Details:", error);
+                    alert(`Save Error: ${error.message}`);
                     return;
                 }
                 
                 fetchLeaderboard(); 
             } catch (err) { 
-                console.error('Save failed:', err); 
+                console.error('Critical Save Failure:', err); 
             }
         };
     });
