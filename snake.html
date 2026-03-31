@@ -6,6 +6,7 @@
     <title>Snake Pro - Vinoth Raja</title>
     
     <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
+    
     <script src="js/supabase.js"></script>
     
     <style>
@@ -155,7 +156,7 @@
         <div id="overlay">
             <h1 style="color:var(--danger); margin-bottom:5px; font-size: 2.5rem;">MISSION FAILED</h1>
             <p id="final-stats" style="text-align: center; line-height: 1.6; color: #ccc; font-size: 1.1rem;"></p>
-            <button onclick="unlockAndReset()" class="btn" style="background:var(--accent); margin-top:20px; padding: 12px 40px; width:auto;">Adjust Settings</button>
+            <button onclick="unlockAndReset()" class="btn" style="background:var(--accent); margin-top:20px; padding: 12px 40px; width:auto;">Try Again</button>
         </div>
     </main>
 
@@ -372,7 +373,7 @@
             } else {
                 connectionAttempts++;
                 if (connectionAttempts > 15) {
-                    lbStatus.innerText = "Leaderboard Offline.";
+                    lbStatus.innerText = "Leaderboard Offline (Could not read js/supabase.js).";
                     return;
                 }
                 setTimeout(connectToDatabase, 500); 
@@ -382,7 +383,8 @@
 
         async function fetchLeaderboard() {
             try {
-                const { data, error } = await window.supabaseClient.from('scores').select('*').order('score', { ascending: false }).limit(15);
+                // IMPORTANT: Fetching from the NEW table 'snake_scores'
+                const { data, error } = await window.supabaseClient.from('snake_scores').select('*').order('final_score', { ascending: false }).limit(15);
                 if (error) throw error;
                 
                 if (!data || data.length === 0) {
@@ -390,18 +392,17 @@
                     return;
                 }
 
-                // Gracefully handles missing database columns when displaying the leaderboard
                 scoreboard.innerHTML = data.map(entry => {
-                    let user = entry.user_email ? String(entry.user_email).split('@')[0] : 'Guest';
-                    let mode = entry.wall_mode ? String(entry.wall_mode).toUpperCase() : 'N/A';
-                    let size = entry.arena_size || 'Std';
-                    let skulls = entry.maze_complexity != null ? entry.maze_complexity : '0';
-                    let spd = entry.snake_speed != null ? entry.snake_speed : '?';
+                    let user = entry.player_email ? String(entry.player_email).split('@')[0] : 'Guest';
+                    let mode = entry.border_mode ? String(entry.border_mode).toUpperCase() : 'N/A';
+                    let size = entry.grid_size || 'Std';
+                    let skulls = entry.skull_count != null ? entry.skull_count : '0';
+                    let spd = entry.speed_level != null ? entry.speed_level : '?';
 
                     return `
                     <div class="score-item">
                         <strong>${user}</strong> 
-                        <span style="float:right; color:var(--success); font-weight:bold">${entry.score}</span>
+                        <span style="float:right; color:var(--success); font-weight:bold">${entry.final_score}</span>
                         <div class="score-meta">${size} • ${mode} • ${skulls} Skulls • Spd: ${spd}</div>
                     </div>
                     `;
@@ -415,36 +416,23 @@
             if (!window.supabaseClient) return;
             
             try {
-                // ATTEMPT 1: Try to save the full rich data payload
-                let { error } = await window.supabaseClient.from('scores').insert([{
-                    user_email: 'vinothraja@example.com',
-                    game: 'Snake',
-                    score: gameData.score,
-                    snake_color: gameData.color,
-                    snake_shape: gameData.shape,
-                    wall_mode: gameData.mode,
-                    maze_complexity: parseInt(gameData.skulls),
-                    arena_size: gameData.sizeText,
-                    snake_speed: parseInt(gameData.speed),
-                    inner_walls: JSON.stringify(gameData.innerWalls)
+                // IMPORTANT: Inserting into the NEW table 'snake_scores' with NEW column names
+                let { error } = await window.supabaseClient.from('snake_scores').insert([{
+                    player_email: 'vinothraja@example.com',
+                    game_name: 'Snake Pro',
+                    final_score: gameData.score,
+                    body_hex: gameData.color,
+                    head_shape: gameData.shape,
+                    border_mode: gameData.mode,
+                    skull_count: parseInt(gameData.skulls),
+                    grid_size: gameData.sizeText,
+                    speed_level: parseInt(gameData.speed),
+                    obstacle_data: JSON.stringify(gameData.innerWalls)
                 }]);
                 
-                // ERROR 42703 MEANS "COLUMN DOES NOT EXIST"
-                if (error && error.code === '42703') {
-                    console.warn("Missing columns detected. Falling back to Basic Save Mode...");
-                    
-                    // ATTEMPT 2: Fallback to bare minimum save (Guaranteed to work)
-                    const fallbackResult = await window.supabaseClient.from('scores').insert([{
-                        user_email: 'vinothraja@example.com',
-                        game: 'Snake',
-                        score: gameData.score
-                    }]);
-                    
-                    error = fallbackResult.error;
-                }
-                
                 if (error) {
-                    alert(`Save Error: ${error.message}`);
+                    alert(`Supabase Error: ${error.message}\n\nMake sure your new 'snake_scores' table exists and has RLS disabled!`);
+                    console.error("Supabase Error Details:", error);
                     return;
                 }
                 
