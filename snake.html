@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Snake Pro - Vinoth Raja</title>
     
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
     <script src="js/supabase.js"></script>
     
     <style>
@@ -19,8 +19,7 @@
             display: grid;
             grid-template-columns: 340px 1fr 300px;
             height: 100vh; gap: 20px; 
-            /* FIX: Increased top and bottom padding for symmetrical breathing room */
-            padding: 40px 20px; 
+            padding: 40px 20px; /* Symmetrical top/bottom spacing */
             box-sizing: border-box;
         }
 
@@ -29,14 +28,13 @@
         #ui-controls {
             display: flex;
             flex-direction: column;
-            gap: 15px; /* Adjusted gap slightly to fit the new slider */
+            gap: 15px; 
             margin-top: 10px;
             margin-bottom: 20px;
-            overflow-y: auto; /* Just in case the screen is short */
+            overflow-y: auto; 
             padding-right: 5px;
         }
 
-        /* Custom scrollbar for settings if needed */
         #ui-controls::-webkit-scrollbar { width: 6px; }
         #ui-controls::-webkit-scrollbar-thumb { background: #30363d; border-radius: 3px; }
 
@@ -157,7 +155,7 @@
         <div id="overlay">
             <h1 style="color:var(--danger); margin-bottom:5px; font-size: 2.5rem;">MISSION FAILED</h1>
             <p id="final-stats" style="text-align: center; line-height: 1.6; color: #ccc; font-size: 1.1rem;"></p>
-            <button onclick="unlockAndReset()" class="btn" style="background:var(--accent); margin-top:20px; padding: 12px 40px; width:auto;">Try Again</button>
+            <button onclick="unlockAndReset()" class="btn" style="background:var(--accent); margin-top:20px; padding: 12px 40px; width:auto;">Adjust Settings</button>
         </div>
     </main>
 
@@ -246,7 +244,6 @@
 
         draw();
         
-        // Grab speed from slider and convert to delay (1 = 195ms, 10 = 60ms)
         const speedVal = parseInt(document.getElementById('snake-speed').value) || 5;
         const delay = 210 - (speedVal * 15);
 
@@ -414,9 +411,14 @@
         }
 
         window.triggerDatabaseSave = async function(gameData) {
-            if (!window.supabaseClient) return;
+            if (!window.supabaseClient) {
+                alert("Cannot save: Supabase client is not connected.");
+                return;
+            }
             try {
-                await window.supabaseClient.from('scores').insert([{
+                console.log("Attempting to save to Supabase...", gameData);
+                
+                const { error } = await window.supabaseClient.from('scores').insert([{
                     user_email: 'vinothraja@example.com',
                     game: 'Snake',
                     score: gameData.score,
@@ -428,9 +430,17 @@
                     snake_speed: parseInt(gameData.speed),
                     inner_walls: JSON.stringify(gameData.innerWalls)
                 }]);
+                
+                if (error) {
+                    console.error("Supabase Error Details:", error);
+                    alert(`Supabase Error: ${error.message}\n\nHint: ${error.hint || 'Check your console (F12) for details.'}`);
+                    return;
+                }
+                
                 fetchLeaderboard(); 
             } catch (err) { 
-                console.error('Save failed:', err.message); 
+                alert(`Unexpected Save Error: ${err.message}`);
+                console.error('Save failed:', err); 
             }
         };
     });
