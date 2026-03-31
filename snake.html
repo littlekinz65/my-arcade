@@ -3,240 +3,338 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Ultimate Snake Game</title>
+    <title>Snake Pro - Vinoth Raja</title>
     <style>
         :root {
-            --bg-color: #0f3460;
-            --accent-color: #43bccd;
-            --danger-color: #e94560;
+            --bg: #0b0e14; --panel: #161b22; --accent: #58a6ff;
+            --danger: #f85149; --success: #3fb950;
         }
-        body { background-color: #1a1a2e; color: white; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
-        #game-container { text-align: center; margin-top: 20px; }
+        body, html { margin: 0; padding: 0; height: 100%; overflow: hidden; background: var(--bg); color: white; font-family: 'Segoe UI', sans-serif; }
         
-        /* Menu Styling */
-        #menu {
-            background: rgba(15, 52, 96, 0.9);
-            padding: 20px;
-            border-radius: 12px;
-            width: 350px;
-            margin: 0 auto;
-            border: 2px solid var(--accent-color);
-        }
-        .option-group { margin-bottom: 15px; text-align: left; }
-        label { display: block; margin-bottom: 5px; font-size: 14px; color: var(--accent-color); }
-        select, input { width: 100%; padding: 8px; border-radius: 4px; border: none; background: #16213e; color: white; }
-        
-        button#start-btn {
-            background: var(--accent-color);
-            border: none;
-            padding: 10px 20px;
-            color: #1a1a2e;
-            font-weight: bold;
-            cursor: pointer;
-            width: 100%;
-            border-radius: 4px;
-            font-size: 16px;
+        #main-layout {
+            display: grid;
+            grid-template-columns: 300px 1fr 300px;
+            height: 100vh; gap: 10px; padding: 10px; box-sizing: border-box;
         }
 
-        canvas { 
-            background-color: #000; 
-            border: 4px solid var(--bg-color); 
-            border-radius: 8px; 
-            box-shadow: 0 0 15px var(--accent-color);
-            display: none; 
+        aside { background: var(--panel); padding: 15px; border-radius: 8px; display: flex; flex-direction: column; gap: 12px; border: 1px solid #30363d; }
+        .input-group { display: flex; flex-direction: column; gap: 4px; font-size: 0.8rem; }
+        
+        select, input[type="range"] { 
+            background: #0d1117; color: white; border: 1px solid #30363d; padding: 8px; border-radius: 4px; 
         }
 
-        .hidden { display: none !important; }
-        .play-btn { text-decoration: none; color: var(--accent-color); font-weight: bold; }
+        .nav-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 5px; }
+        .back-btn { text-decoration: none; color: var(--accent); font-weight: bold; font-size: 0.9rem; }
+        
+        .btn {
+            background: var(--success); border: none; color: white; padding: 12px;
+            border-radius: 4px; cursor: pointer; font-weight: bold; transition: 0.2s;
+        }
+        .btn:disabled { background: #30363d; cursor: not-allowed; opacity: 0.5; }
+
+        #game-area { display: flex; align-items: center; justify-content: center; position: relative; background: #000; border-radius: 8px; border: 2px solid #30363d; }
+        canvas { background: #000; display: block; }
+
+        .score-item { padding: 8px; border-bottom: 1px solid #30363d; font-size: 0.75rem; }
+        .score-meta { color: #8b949e; font-size: 0.7rem; }
+
+        .frozen { opacity: 0.4; pointer-events: none; }
+
+        #shape-preview {
+            width: 35px; height: 35px; border: 1px solid #58a6ff; 
+            border-radius: 4px; display: flex; align-items: center; 
+            justify-content: center; font-size: 22px; background: #0d1117;
+        }
+
+        #overlay {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.85); display: flex; flex-direction: column;
+            align-items: center; justify-content: center; display: none; z-index: 10;
+        }
     </style>
 </head>
 <body>
 
-    <div id="game-container">
-        <header style="display: flex; justify-content: space-between; width: 400px; margin: 0 auto 20px;">
-            <a href="dashboard.html" class="play-btn">&larr; Back</a>
-            <h2 style="margin: 0;">Score: <span id="score-display">0</span></h2>
-        </header>
-
-        <div id="menu">
-            <h3>Game Settings</h3>
-            <div class="option-group">
+<div id="main-layout">
+    <aside id="settings-panel">
+        <div class="nav-header">
+            <a href="dashboard.html" class="back-btn">&larr; Home</a>
+            <h3 style="margin:0; font-size: 1rem; color: var(--accent);">Game Config</h3>
+        </div>
+        
+        <div id="ui-controls">
+            <div class="input-group">
+                <label>Arena Size</label>
+                <select id="arena-size">
+                    <option value="300">Small (15x15)</option>
+                    <option value="400" selected>Medium (20x20)</option>
+                    <option value="600">Large (30x30)</option>
+                </select>
+            </div>
+            <div class="input-group">
                 <label>Wall Mode</label>
                 <select id="wall-mode">
-                    <option value="solid">Solid (Game Over on hit)</option>
-                    <option value="pass">Ghost (Go Through Walls)</option>
+                    <option value="solid">Solid (Thick Walls)</option>
+                    <option value="pass">Ghost (Pass-thru Walls)</option>
                 </select>
             </div>
-            <div class="option-group">
-                <label>Snake Shape</label>
-                <select id="snake-shape">
-                    <option value="square">Square</option>
-                    <option value="circle">Circle</option>
-                    <option value="triangle">Triangle</option>
-                    <option value="hexagon">Hexagon</option>
-                </select>
+            <div class="input-group">
+                <label>Maze Complexity (💀 Skulls)</label>
+                <input type="range" id="maze-complexity" min="0" max="30" value="10">
             </div>
-            <div class="option-group">
-                <label>Snake Color</label>
-                <input type="color" id="snake-color" value="#43bccd">
+            <div class="input-group">
+                <label>Snake Head Shape</label>
+                <div style="display: flex; gap: 10px; align-items: center;">
+                    <select id="snake-shape" style="flex-grow:1">
+                        <option value="😀">Grinning Face (😀)</option>
+                        <option value="😁">Beaming Smile (😁)</option>
+                        <option value="😉">Winking Face (😉)</option>
+                        <option value="🤩">Star-Struck (🤩)</option>
+                        <option value="hexagon">Hexagon</option>
+                        <option value="circle">Circle</option>
+                        <option value="square">Classic Square</option>
+                    </select>
+                    <div id="shape-preview">😀</div>
+                </div>
             </div>
-            <button id="start-btn">START GAME</button>
+            <div class="input-group">
+                <label>Body Color</label>
+                <input type="color" id="snake-color" value="#3fb950" style="height:35px; width:100%; cursor:pointer;">
+            </div>
         </div>
 
-        <canvas id="gameCanvas" width="400" height="400"></canvas>
-        <p id="game-over-text" style="display: none; color: #e94560; font-weight: bold; font-size: 20px;">
-            Game Over! <br> <button onclick="location.reload()" style="background:none; border:1px solid; color:white; cursor:pointer; padding:5px;">Restart</button>
-        </p>
-    </div>
-
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    <script>
-        const canvas = document.getElementById("gameCanvas");
-        const ctx = canvas.getContext("2d");
-        const scoreDisplay = document.getElementById("score-display");
-        const menu = document.getElementById("menu");
-        const startBtn = document.getElementById("start-btn");
+        <button id="start-btn" class="btn">START MISSION</button>
         
-        // Game Settings
-        const gridSize = 20;
-        const tileCount = canvas.width / gridSize;
-        let score = 0;
-        let dx = 0, dy = 0;
-        let snake = [{x: 10, y: 10}];
-        let food = {x: 5, y: 5};
-        let gameSpeed = 100;
-        let wallMode = 'solid';
-        let snakeShape = 'square';
-        let snakeColor = '#43bccd';
-        let gameInterval;
+        <div style="margin-top:auto; padding:10px; background:#0d1117; border-radius:4px; text-align: center; border: 1px solid #30363d;">
+            <small style="color: #8b949e;">Current Score</small>
+            <div id="score-val" style="font-size:2rem; font-weight:bold; color:var(--success)">0</div>
+        </div>
+    </aside>
 
-        startBtn.addEventListener('click', startGame);
+    <main id="game-area">
+        <canvas id="gameCanvas"></canvas>
+        <div id="overlay">
+            <h1 style="color:var(--danger); margin-bottom:5px;">MISSION FAILED</h1>
+            <p id="final-stats" style="text-align: center; line-height: 1.6; color: #8b949e;"></p>
+            <button onclick="unlockAndReset()" class="btn" style="background:var(--accent); margin-top:10px; padding: 10px 30px;">Adjust Settings</button>
+        </div>
+    </main>
 
-        function startGame() {
-            wallMode = document.getElementById('wall-mode').value;
-            snakeShape = document.getElementById('snake-shape').value;
-            snakeColor = document.getElementById('snake-color').value;
-            
-            // Adjust speed: Ghost mode is slightly faster to compensate for ease
-            gameSpeed = (wallMode === 'pass') ? 80 : 110;
-            
-            // UI Switch
-            menu.classList.add('hidden');
-            canvas.style.display = "inline-block";
-            
-            // Canvas border representation
-            canvas.style.borderColor = (wallMode === 'pass') ? "#00ff00" : "#e94560";
-            
-            dx = 1; // Start moving right
+    <aside>
+        <h4 style="margin:0 0 10px 0; border-bottom: 1px solid #30363d; padding-bottom: 5px;">Leaderboard</h4>
+        <div id="score-board" style="overflow-y:auto;">
+            <div class="score-item">
+                <strong>Vinoth Raja</strong> <span style="float:right">2,450</span>
+                <div class="score-meta">Large • Ghost • 15 Skulls</div>
+            </div>
+        </div>
+    </aside>
+</div>
+
+<script>
+    const canvas = document.getElementById('gameCanvas');
+    const ctx = canvas.getContext('2d');
+    const ui = document.getElementById('ui-controls');
+    const startBtn = document.getElementById('start-btn');
+    const overlay = document.getElementById('overlay');
+    const shapeSelect = document.getElementById('snake-shape');
+    const shapePreview = document.getElementById('shape-preview');
+
+    let gridSize = 20;
+    let tileCount, snake, food, innerWalls, dx, dy, score, interval, gameRunning = false;
+
+    // Update preview icon
+    shapeSelect.addEventListener('change', () => {
+        const val = shapeSelect.value;
+        if (val === 'hexagon') shapePreview.innerText = "⬢";
+        else if (val === 'circle') shapePreview.innerText = "●";
+        else if (val === 'square') shapePreview.innerText = "■";
+        else shapePreview.innerText = val;
+    });
+
+    function initLayout() {
+        const size = parseInt(document.getElementById('arena-size').value);
+        canvas.width = canvas.height = size;
+        tileCount = size / gridSize;
+        draw(); 
+    }
+
+    function generateMaze() {
+        innerWalls = [];
+        const complexity = parseInt(document.getElementById('maze-complexity').value);
+        for (let i = 0; i < complexity; i++) {
+            let wx = Math.floor(Math.random() * tileCount);
+            let wy = Math.floor(Math.random() * tileCount);
+            // Safe spawn logic: avoid head start area (10,10)
+            if (Math.abs(wx - 10) > 3 || Math.abs(wy - 10) > 3) {
+                innerWalls.push({x: wx, y: wy});
+            }
+        }
+    }
+
+    function spawnFood() {
+        let valid = false;
+        let attempts = 0;
+        while (!valid && attempts < 100) {
+            food = { x: Math.floor(Math.random() * tileCount), y: Math.floor(Math.random() * tileCount) };
+            const inSnake = snake.some(s => s.x === food.x && s.y === food.y);
+            const inWall = innerWalls.some(w => w.x === food.x && w.y === food.y);
+            if (!inSnake && !inWall) valid = true;
+            attempts++;
+        }
+    }
+
+    function startGame() {
+        // 1. UI Freeze
+        ui.classList.add('frozen');
+        startBtn.disabled = true;
+        overlay.style.display = 'none';
+        
+        // 2. Data Initialization
+        const size = parseInt(document.getElementById('arena-size').value);
+        canvas.width = canvas.height = size;
+        tileCount = size / gridSize;
+        
+        snake = [{x: 10, y: 10}, {x: 9, y: 10}, {x: 8, y: 10}];
+        innerWalls = []; // Reset before generating
+        generateMaze();
+        spawnFood();
+        
+        dx = 1; dy = 0; score = 0;
+        document.getElementById('score-val').innerText = "0";
+
+        // 3. Pre-draw first frame
+        draw();
+        
+        // 4. Start Interval
+        gameRunning = true;
+        if(interval) clearInterval(interval);
+        interval = setInterval(update, 110);
+    }
+
+    function update() {
+        if (!gameRunning) return;
+        
+        const head = {x: snake[0].x + dx, y: snake[0].y + dy};
+        const wallMode = document.getElementById('wall-mode').value;
+
+        // Collision logic
+        if (wallMode === 'solid') {
+            if (head.x < 0 || head.x >= tileCount || head.y < 0 || head.y >= tileCount) return gameOver();
+        } else {
+            if (head.x < 0) head.x = tileCount - 1;
+            if (head.x >= tileCount) head.x = 0;
+            if (head.y < 0) head.y = tileCount - 1;
+            if (head.y >= tileCount) head.y = 0;
+        }
+
+        if (innerWalls.some(w => w.x === head.x && w.y === head.y)) return gameOver();
+        if (snake.some(s => s.x === head.x && s.y === head.y)) return gameOver();
+
+        snake.unshift(head);
+        if (head.x === food.x && head.y === food.y) {
+            score += 10;
+            document.getElementById('score-val').innerText = score;
             spawnFood();
-            gameInterval = setInterval(update, gameSpeed);
+        } else {
+            snake.pop();
         }
+        draw();
+    }
 
-        function update() {
-            moveSnake();
-            if (checkGameOver()) return;
-            checkFood();
-            draw();
-        }
+    function draw() {
+        // Clear background
+        ctx.fillStyle = "black";
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-        function moveSnake() {
-            const head = { x: snake[0].x + dx, y: snake[0].y + dy };
+        // Render Walls
+        const mode = document.getElementById('wall-mode').value;
+        canvas.style.border = (mode === 'solid') ? "8px solid #444" : "2px solid var(--accent)";
 
-            if (wallMode === 'pass') {
-                if (head.x < 0) head.x = tileCount - 1;
-                if (head.x >= tileCount) head.x = 0;
-                if (head.y < 0) head.y = tileCount - 1;
-                if (head.y >= tileCount) head.y = 0;
-            }
+        // Render Skulls
+        ctx.font = "16px Arial";
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+        innerWalls.forEach(w => {
+            ctx.fillText("💀", w.x * gridSize + 10, w.y * gridSize + 10);
+        });
 
-            snake.unshift(head);
-            if (head.x === food.x && head.y === food.y) {
-                score += 10;
-                scoreDisplay.innerText = score;
-                spawnFood();
-            } else {
-                snake.pop();
-            }
-        }
+        // Render Food
+        ctx.fillStyle = "#ff4757";
+        ctx.beginPath();
+        ctx.arc(food.x * gridSize + 10, food.y * gridSize + 10, 7, 0, Math.PI * 2);
+        ctx.fill();
 
-        function checkGameOver() {
-            const head = snake[0];
+        // Render Snake
+        const color = document.getElementById('snake-color').value;
+        const headShape = document.getElementById('snake-shape').value;
+        
+        snake.forEach((seg, i) => {
+            const px = seg.x * gridSize; const py = seg.y * gridSize;
             
-            // Wall Collision (only if solid)
-            if (wallMode === 'solid') {
-                if (head.x < 0 || head.x >= tileCount || head.y < 0 || head.y >= tileCount) {
-                    return endGame();
-                }
-            }
-
-            // Self Collision
-            for (let i = 1; i < snake.length; i++) {
-                if (head.x === snake[i].x && head.y === snake[i].y) return endGame();
-            }
-            return false;
-        }
-
-        function endGame() {
-            clearInterval(gameInterval);
-            document.getElementById('game-over-text').style.display = "block";
-            return true;
-        }
-
-        function spawnFood() {
-            // Fix: Ensure food does not spawn inside snake body
-            let valid = false;
-            while (!valid) {
-                food.x = Math.floor(Math.random() * tileCount);
-                food.y = Math.floor(Math.random() * tileCount);
-                valid = !snake.some(segment => segment.x === food.x && segment.y === food.y);
-            }
-        }
-
-        function draw() {
-            // Clear Background
-            ctx.fillStyle = "black";
-            ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-            // Draw Food
-            ctx.fillStyle = "#ff0042";
-            ctx.beginPath();
-            ctx.arc(food.x * gridSize + gridSize/2, food.y * gridSize + gridSize/2, gridSize/3, 0, Math.PI * 2);
-            ctx.fill();
-
-            // Draw Snake
-            ctx.fillStyle = snakeColor;
-            snake.forEach((segment, index) => {
-                const px = segment.x * gridSize;
-                const py = segment.y * gridSize;
-                
-                ctx.beginPath();
-                if (snakeShape === 'circle') {
-                    ctx.arc(px + gridSize/2, py + gridSize/2, gridSize/2 - 1, 0, Math.PI * 2);
-                } else if (snakeShape === 'triangle') {
-                    ctx.moveTo(px + gridSize/2, py);
-                    ctx.lineTo(px, py + gridSize);
-                    ctx.lineTo(px + gridSize, py + gridSize);
-                } else if (snakeShape === 'hexagon') {
-                    for (let i = 0; i < 6; i++) {
-                        ctx.lineTo(px + gridSize/2 + gridSize/2 * Math.cos(i * Math.PI / 3), 
-                                   py + gridSize/2 + gridSize/2 * Math.sin(i * Math.PI / 3));
+            if (i === 0) { // HEAD
+                ctx.fillStyle = "white";
+                if (['😀','😁','😉','🤩'].includes(headShape)) {
+                    ctx.font = "18px Arial";
+                    ctx.fillText(headShape, px + 10, py + 12);
+                } else if (headShape === 'hexagon') {
+                    ctx.fillStyle = color;
+                    ctx.beginPath();
+                    for (let n = 0; n < 6; n++) {
+                        ctx.lineTo(px + 10 + 9 * Math.cos(n * Math.PI / 3), py + 10 + 9 * Math.sin(n * Math.PI / 3));
                     }
-                } else { // Square
-                    ctx.rect(px + 1, py + 1, gridSize - 2, gridSize - 2);
+                    ctx.closePath(); ctx.fill();
+                } else if (headShape === 'circle') {
+                    ctx.fillStyle = color;
+                    ctx.beginPath(); ctx.arc(px+10, py+10, 9, 0, Math.PI*2); ctx.fill();
+                } else {
+                    ctx.fillStyle = color;
+                    ctx.fillRect(px+1, py+1, 18, 18);
                 }
-                ctx.fill();
-                ctx.closePath();
-            });
-        }
-
-        window.addEventListener("keydown", e => {
-            switch (e.key) {
-                case "ArrowUp": if (dy !== 1) { dx = 0; dy = -1; } break;
-                case "ArrowDown": if (dy !== -1) { dx = 0; dy = 1; } break;
-                case "ArrowLeft": if (dx !== 1) { dx = -1; dy = 0; } break;
-                case "ArrowRight": if (dx !== -1) { dx = 1; dy = 0; } break;
+            } else { // BODY
+                ctx.fillStyle = color;
+                ctx.globalAlpha = 0.6;
+                ctx.fillRect(px+3, py+3, 14, 14);
+                ctx.globalAlpha = 1.0;
             }
         });
-    </script>
+    }
+
+    function gameOver() {
+        gameRunning = false;
+        clearInterval(interval);
+        const mode = document.getElementById('wall-mode').value;
+        const sizeText = document.getElementById('arena-size').options[document.getElementById('arena-size').selectedIndex].text;
+        const skulls = document.getElementById('maze-complexity').value;
+        
+        document.getElementById('final-stats').innerHTML = `<b>Final Score: ${score}</b><br>Arena: ${sizeText}<br>Mode: ${mode.toUpperCase()}<br>Complexity: ${skulls} Skulls`;
+        overlay.style.display = 'flex';
+    }
+
+    function unlockAndReset() {
+        ui.classList.remove('frozen');
+        startBtn.disabled = false;
+        overlay.style.display = 'none';
+        initLayout();
+    }
+
+    window.addEventListener('keydown', e => {
+        if (!gameRunning) return;
+        const key = e.key;
+        if (key === 'ArrowUp' && dy === 0) { dx = 0; dy = -1; }
+        if (key === 'ArrowDown' && dy === 0) { dx = 0; dy = 1; }
+        if (key === 'ArrowLeft' && dx === 0) { dx = -1; dy = 0; }
+        if (key === 'ArrowRight' && dx === 0) { dx = 1; dy = 0; }
+    });
+
+    startBtn.addEventListener('click', startGame);
+    document.getElementById('arena-size').addEventListener('change', initLayout);
+    
+    // Setup Initial Blank View
+    initLayout();
+    innerWalls = [];
+    food = {x: 5, y: 5};
+</script>
 </body>
 </html>
