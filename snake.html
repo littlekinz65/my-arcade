@@ -4,6 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Snake Pro - Vinoth Raja</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="js/supabase.js"></script>
     <style>
         :root {
             --bg: #0b0e14; --panel: #161b22; --accent: #58a6ff;
@@ -36,8 +38,8 @@
         #game-area { display: flex; align-items: center; justify-content: center; position: relative; background: #000; border-radius: 8px; border: 2px solid #30363d; }
         canvas { background: #000; display: block; }
 
-        .score-item { padding: 8px; border-bottom: 1px solid #30363d; font-size: 0.75rem; }
-        .score-meta { color: #8b949e; font-size: 0.7rem; }
+        .score-item { padding: 10px; border-bottom: 1px solid #30363d; font-size: 0.75rem; }
+        .score-meta { color: #8b949e; font-size: 0.7rem; margin-top: 4px; }
 
         .frozen { opacity: 0.4; pointer-events: none; }
 
@@ -123,16 +125,16 @@
 
     <aside>
         <h4 style="margin:0 0 10px 0; border-bottom: 1px solid #30363d; padding-bottom: 5px;">Leaderboard</h4>
-        <div id="score-board" style="overflow-y:auto;">
-            <div class="score-item">
-                <strong>Vinoth Raja</strong> <span style="float:right">2,450</span>
-                <div class="score-meta">Large • Ghost • 15 Skulls</div>
-            </div>
+        <div id="score-board" style="overflow-y:auto; flex-grow: 1;">
+            <div id="leaderboard-loading" style="padding: 10px; color: #8b949e;">Connecting to Supabase...</div>
         </div>
     </aside>
 </div>
 
 <script>
+    // Access the shared client from window (initialized in js/supabase.js)
+    const supabase = window.supabaseClient;
+
     const canvas = document.getElementById('gameCanvas');
     const ctx = canvas.getContext('2d');
     const ui = document.getElementById('ui-controls');
@@ -140,11 +142,14 @@
     const overlay = document.getElementById('overlay');
     const shapeSelect = document.getElementById('snake-shape');
     const shapePreview = document.getElementById('shape-preview');
+    const scoreboard = document.getElementById('score-board');
 
     let gridSize = 20;
     let tileCount, snake, food, innerWalls, dx, dy, score, interval, gameRunning = false;
 
-    // Update preview icon
+    // Load leaderboard on page load
+    window.onload = loadLeaderboard;
+
     shapeSelect.addEventListener('change', () => {
         const val = shapeSelect.value;
         if (val === 'hexagon') shapePreview.innerText = "⬢";
@@ -166,7 +171,6 @@
         for (let i = 0; i < complexity; i++) {
             let wx = Math.floor(Math.random() * tileCount);
             let wy = Math.floor(Math.random() * tileCount);
-            // Safe spawn logic: avoid head start area (10,10)
             if (Math.abs(wx - 10) > 3 || Math.abs(wy - 10) > 3) {
                 innerWalls.push({x: wx, y: wy});
             }
@@ -175,39 +179,26 @@
 
     function spawnFood() {
         let valid = false;
-        let attempts = 0;
-        while (!valid && attempts < 100) {
+        while (!valid) {
             food = { x: Math.floor(Math.random() * tileCount), y: Math.floor(Math.random() * tileCount) };
             const inSnake = snake.some(s => s.x === food.x && s.y === food.y);
             const inWall = innerWalls.some(w => w.x === food.x && w.y === food.y);
             if (!inSnake && !inWall) valid = true;
-            attempts++;
         }
     }
 
     function startGame() {
-        // 1. UI Freeze
         ui.classList.add('frozen');
         startBtn.disabled = true;
         overlay.style.display = 'none';
-        
-        // 2. Data Initialization
-        const size = parseInt(document.getElementById('arena-size').value);
-        canvas.width = canvas.height = size;
-        tileCount = size / gridSize;
-        
+        initLayout();
         snake = [{x: 10, y: 10}, {x: 9, y: 10}, {x: 8, y: 10}];
-        innerWalls = []; // Reset before generating
+        innerWalls = [];
         generateMaze();
         spawnFood();
-        
         dx = 1; dy = 0; score = 0;
         document.getElementById('score-val').innerText = "0";
-
-        // 3. Pre-draw first frame
         draw();
-        
-        // 4. Start Interval
         gameRunning = true;
         if(interval) clearInterval(interval);
         interval = setInterval(update, 110);
@@ -215,11 +206,8 @@
 
     function update() {
         if (!gameRunning) return;
-        
         const head = {x: snake[0].x + dx, y: snake[0].y + dy};
         const wallMode = document.getElementById('wall-mode').value;
-
-        // Collision logic
         if (wallMode === 'solid') {
             if (head.x < 0 || head.x >= tileCount || head.y < 0 || head.y >= tileCount) return gameOver();
         } else {
@@ -228,10 +216,8 @@
             if (head.y < 0) head.y = tileCount - 1;
             if (head.y >= tileCount) head.y = 0;
         }
-
         if (innerWalls.some(w => w.x === head.x && w.y === head.y)) return gameOver();
         if (snake.some(s => s.x === head.x && s.y === head.y)) return gameOver();
-
         snake.unshift(head);
         if (head.x === food.x && head.y === food.y) {
             score += 10;
@@ -244,36 +230,25 @@
     }
 
     function draw() {
-        // Clear background
         ctx.fillStyle = "black";
         ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-        // Render Walls
         const mode = document.getElementById('wall-mode').value;
         canvas.style.border = (mode === 'solid') ? "8px solid #444" : "2px solid var(--accent)";
-
-        // Render Skulls
         ctx.font = "16px Arial";
         ctx.textAlign = "center";
         ctx.textBaseline = "middle";
         innerWalls.forEach(w => {
             ctx.fillText("💀", w.x * gridSize + 10, w.y * gridSize + 10);
         });
-
-        // Render Food
         ctx.fillStyle = "#ff4757";
         ctx.beginPath();
         ctx.arc(food.x * gridSize + 10, food.y * gridSize + 10, 7, 0, Math.PI * 2);
         ctx.fill();
-
-        // Render Snake
         const color = document.getElementById('snake-color').value;
         const headShape = document.getElementById('snake-shape').value;
-        
         snake.forEach((seg, i) => {
             const px = seg.x * gridSize; const py = seg.y * gridSize;
-            
-            if (i === 0) { // HEAD
+            if (i === 0) {
                 ctx.fillStyle = "white";
                 if (['😀','😁','😉','🤩'].includes(headShape)) {
                     ctx.font = "18px Arial";
@@ -292,7 +267,7 @@
                     ctx.fillStyle = color;
                     ctx.fillRect(px+1, py+1, 18, 18);
                 }
-            } else { // BODY
+            } else {
                 ctx.fillStyle = color;
                 ctx.globalAlpha = 0.6;
                 ctx.fillRect(px+3, py+3, 14, 14);
@@ -301,15 +276,62 @@
         });
     }
 
-    function gameOver() {
+    async function gameOver() {
         gameRunning = false;
         clearInterval(interval);
         const mode = document.getElementById('wall-mode').value;
         const sizeText = document.getElementById('arena-size').options[document.getElementById('arena-size').selectedIndex].text;
         const skulls = document.getElementById('maze-complexity').value;
-        
+        const shape = document.getElementById('snake-shape').value;
+        const color = document.getElementById('snake-color').value;
+
         document.getElementById('final-stats').innerHTML = `<b>Final Score: ${score}</b><br>Arena: ${sizeText}<br>Mode: ${mode.toUpperCase()}<br>Complexity: ${skulls} Skulls`;
         overlay.style.display = 'flex';
+
+        // --- SUPABASE SAVE ---
+        try {
+            const { error } = await supabase
+                .from('scores')
+                .insert([{
+                    user_email: 'vinothraja@example.com', // Replace with dynamic user if using Auth
+                    game: 'Snake',
+                    score: score,
+                    snake_color: color,
+                    snake_shape: shape,
+                    wall_mode: mode,
+                    maze_complexity: parseInt(skulls),
+                    arena_size: sizeText,
+                    inner_walls: JSON.stringify(innerWalls)
+                }]);
+
+            if (error) throw error;
+            loadLeaderboard();
+        } catch (err) {
+            console.error('Supabase Error:', err.message);
+        }
+    }
+
+    async function loadLeaderboard() {
+        try {
+            const { data, error } = await supabase
+                .from('scores')
+                .select('*')
+                .order('score', { ascending: false })
+                .limit(15);
+
+            if (error) throw error;
+
+            scoreboard.innerHTML = data.map(entry => `
+                <div class="score-item">
+                    <strong>${entry.user_email.split('@')[0]}</strong> 
+                    <span style="float:right; color:var(--success); font-weight:bold">${entry.score}</span>
+                    <div class="score-meta">${entry.arena_size} • ${entry.wall_mode.toUpperCase()} • ${entry.maze_complexity} Skulls</div>
+                </div>
+            `).join('');
+        } catch (err) {
+            console.error('Leaderboard Error:', err.message);
+            scoreboard.innerHTML = '<div style="padding:10px; color:var(--danger)">Error loading leaderboard.</div>';
+        }
     }
 
     function unlockAndReset() {
@@ -321,20 +343,15 @@
 
     window.addEventListener('keydown', e => {
         if (!gameRunning) return;
-        const key = e.key;
-        if (key === 'ArrowUp' && dy === 0) { dx = 0; dy = -1; }
-        if (key === 'ArrowDown' && dy === 0) { dx = 0; dy = 1; }
-        if (key === 'ArrowLeft' && dx === 0) { dx = -1; dy = 0; }
-        if (key === 'ArrowRight' && dx === 0) { dx = 1; dy = 0; }
+        if (e.key === 'ArrowUp' && dy === 0) { dx = 0; dy = -1; }
+        if (e.key === 'ArrowDown' && dy === 0) { dx = 0; dy = 1; }
+        if (e.key === 'ArrowLeft' && dx === 0) { dx = -1; dy = 0; }
+        if (e.key === 'ArrowRight' && dx === 0) { dx = 1; dy = 0; }
     });
 
     startBtn.addEventListener('click', startGame);
     document.getElementById('arena-size').addEventListener('change', initLayout);
-    
-    // Setup Initial Blank View
     initLayout();
-    innerWalls = [];
-    food = {x: 5, y: 5};
 </script>
 </body>
 </html>
