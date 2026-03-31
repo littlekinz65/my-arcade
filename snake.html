@@ -19,7 +19,7 @@
             display: grid;
             grid-template-columns: 340px 1fr 300px;
             height: 100vh; gap: 20px; 
-            padding: 40px 20px; /* Symmetrical top/bottom spacing */
+            padding: 40px 20px;
             box-sizing: border-box;
         }
 
@@ -155,7 +155,7 @@
         <div id="overlay">
             <h1 style="color:var(--danger); margin-bottom:5px; font-size: 2.5rem;">MISSION FAILED</h1>
             <p id="final-stats" style="text-align: center; line-height: 1.6; color: #ccc; font-size: 1.1rem;"></p>
-            <button onclick="unlockAndReset()" class="btn" style="background:var(--accent); margin-top:20px; padding: 12px 40px; width:auto;">Adjust Settings</button>
+            <button onclick="unlockAndReset()" class="btn" style="background:var(--accent); margin-top:20px; padding: 12px 40px; width:auto;">Try Again</button>
         </div>
     </main>
 
@@ -333,7 +333,8 @@
         overlay.style.display = 'flex';
 
         if (typeof window.triggerDatabaseSave === 'function') {
-            window.triggerDatabaseSave({ score, mode, sizeText, skulls, color, shape, speed, innerWalls });
+            // Speed is handled by the game, but omitted from the DB save
+            window.triggerDatabaseSave({ score, mode, sizeText, skulls, color, shape, innerWalls });
         }
     }
 
@@ -395,13 +396,12 @@
                     let mode = entry.wall_mode ? String(entry.wall_mode).toUpperCase() : 'N/A';
                     let size = entry.arena_size || 'N/A';
                     let skulls = entry.maze_complexity != null ? entry.maze_complexity : '0';
-                    let spd = entry.snake_speed || '5';
 
                     return `
                     <div class="score-item">
                         <strong>${user}</strong> 
                         <span style="float:right; color:var(--success); font-weight:bold">${entry.score}</span>
-                        <div class="score-meta">${size} • ${mode} • ${skulls} Skulls • Spd: ${spd}</div>
+                        <div class="score-meta">${size} • ${mode} • ${skulls} Skulls</div>
                     </div>
                     `;
                 }).join('');
@@ -412,12 +412,10 @@
 
         window.triggerDatabaseSave = async function(gameData) {
             if (!window.supabaseClient) {
-                alert("Cannot save: Supabase client is not connected.");
+                console.warn("Supabase client not connected.");
                 return;
             }
             try {
-                console.log("Attempting to save to Supabase...", gameData);
-                
                 const { error } = await window.supabaseClient.from('scores').insert([{
                     user_email: 'vinothraja@example.com',
                     game: 'Snake',
@@ -427,19 +425,17 @@
                     wall_mode: gameData.mode,
                     maze_complexity: parseInt(gameData.skulls),
                     arena_size: gameData.sizeText,
-                    snake_speed: parseInt(gameData.speed),
+                    // Omitted snake_speed to match your current live database schema
                     inner_walls: JSON.stringify(gameData.innerWalls)
                 }]);
                 
                 if (error) {
                     console.error("Supabase Error Details:", error);
-                    alert(`Supabase Error: ${error.message}\n\nHint: ${error.hint || 'Check your console (F12) for details.'}`);
                     return;
                 }
                 
                 fetchLeaderboard(); 
             } catch (err) { 
-                alert(`Unexpected Save Error: ${err.message}`);
                 console.error('Save failed:', err); 
             }
         };
