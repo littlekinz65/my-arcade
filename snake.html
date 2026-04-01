@@ -3,85 +3,79 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Snake Pro - Vinoth Raja</title>
+    <title>Snake Pro - Ultimate Edition</title>
     
     <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
-    
     <script src="js/supabase.js"></script>
     
     <style>
         :root {
-            --bg: #0b0e14; --panel: #161b22; --accent: #58a6ff;
-            --danger: #f85149; --success: #3fb950;
+            --bg: #050505; --panel: #0d1117; --accent: #00f0ff;
+            --danger: #ff003c; --success: #39ff14; --gold: #ffd700; --poison: #9d00ff;
+            --magnet: #0088ff; --pro: #ff5e00; --ice: #00ffff; --bone: #e0e0e0;
         }
-        body, html { margin: 0; padding: 0; height: 100%; overflow: hidden; background: var(--bg); color: white; font-family: 'Segoe UI', sans-serif; }
+        body, html { margin: 0; padding: 0; height: 100vh; overflow: hidden; background: var(--bg); color: white; font-family: 'Segoe UI', sans-serif; user-select: none; }
         
         #main-layout {
             display: grid;
-            grid-template-columns: 340px 1fr 300px;
+            grid-template-columns: 320px 1fr 340px; 
             height: 100vh; gap: 20px; 
-            padding: 40px 20px;
-            box-sizing: border-box;
+            padding: 20px; box-sizing: border-box;
         }
 
-        aside { background: var(--panel); padding: 20px; border-radius: 8px; display: flex; flex-direction: column; border: 1px solid #30363d; }
+        /* Left Panel - Fixed & Tightly Packed */
+        aside { background: var(--panel); padding: 15px; border-radius: 12px; display: flex; flex-direction: column; border: 1px solid #30363d; box-shadow: 0 10px 30px rgba(0,0,0,0.8); overflow: hidden; }
         
-        #ui-controls {
-            display: flex;
-            flex-direction: column;
-            gap: 15px; 
-            margin-top: 10px;
-            margin-bottom: 20px;
-            overflow-y: auto; 
-            padding-right: 5px;
-        }
+        #ui-controls { display: flex; flex-direction: column; gap: 8px; flex-grow: 1; justify-content: flex-start; transition: opacity 0.3s;}
+        .frozen { pointer-events: none; opacity: 0.4; filter: grayscale(1); }
 
-        #ui-controls::-webkit-scrollbar { width: 6px; }
-        #ui-controls::-webkit-scrollbar-thumb { background: #30363d; border-radius: 3px; }
-
-        .input-group { 
-            display: flex; 
-            flex-direction: column; 
-            gap: 8px; 
-            font-size: 0.95rem; 
-            padding-bottom: 15px;
-            border-bottom: 1px dashed #30363d; 
-        }
-        
+        .input-group { display: flex; flex-direction: column; gap: 2px; font-size: 0.8rem; padding-bottom: 6px; border-bottom: 1px dashed #222; }
         .input-group:last-child { border-bottom: none; padding-bottom: 0; }
         
-        select, input[type="range"] { 
-            background: #0d1117; color: white; border: 1px solid #30363d; padding: 10px; border-radius: 4px; cursor: pointer;
-        }
+        select, input[type="range"], input[type="color"] { background: #000; color: white; border: 1px solid #333; padding: 4px; border-radius: 4px; cursor: pointer; transition: 0.2s; outline: none; width: 100%; box-sizing: border-box;}
+        select:hover, input[type="range"]:hover { border-color: var(--accent); }
 
-        .nav-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 5px; border-bottom: 1px solid #30363d; padding-bottom: 15px;}
-        .back-btn { text-decoration: none; color: var(--accent); font-weight: bold; font-size: 0.95rem; }
+        .nav-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; border-bottom: 1px solid #30363d; padding-bottom: 8px;}
+        .back-btn { text-decoration: none; color: var(--accent); font-weight: bold; font-size: 0.85rem; text-transform: uppercase; letter-spacing: 1px;}
         
-        .btn {
-            background: var(--success); border: none; color: white; padding: 14px;
-            border-radius: 4px; cursor: pointer; font-weight: bold; font-size: 1rem; transition: 0.2s; width: 100%;
+        .bottom-anchors { margin-top: auto; display: flex; flex-direction: column; gap: 8px; padding-top: 10px; border-top: 1px solid #30363d; }
+
+        /* The Stage */
+        #game-area { display: flex; align-items: center; justify-content: center; position: relative; background: #020202; border-radius: 12px; border: 2px solid #111; overflow: hidden; box-shadow: inset 0 0 100px rgba(0,0,0,1); transition: border-color 0.5s, box-shadow 0.5s; }
+        #canvas-wrapper { position: relative; display: flex; align-items: center; justify-content: center; width: 100%; height: 100%; }
+        canvas { background: transparent; display: block; z-index: 1;}
+
+        .score-item { padding: 10px 0; border-bottom: 1px solid #222; font-size: 0.85rem; }
+        .score-meta { color: #666; font-size: 0.7rem; margin-top: 4px; }
+        
+        /* Overlays */
+        .overlay-screen { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.85); display: flex; flex-direction: column; align-items: center; justify-content: center; display: none; z-index: 10; backdrop-filter: blur(8px); }
+        
+        .btn { background: var(--success); border: none; color: black; padding: 14px 40px; border-radius: 6px; cursor: pointer; font-weight: 900; font-size: 1.2rem; transition: 0.2s; text-transform: uppercase; letter-spacing: 2px; box-shadow: 0 0 15px rgba(57, 255, 20, 0.4); }
+        .btn:active { transform: scale(0.95); box-shadow: none; }
+        
+        .toggle-row { display: flex; justify-content: space-between; align-items: center; font-size: 0.8rem; color: #aaa; margin-top: 4px;}
+        .toggle-row input { cursor: pointer; accent-color: var(--pro); width: 15px; height: 15px;}
+
+        .pro-active { border-color: var(--pro) !important; box-shadow: inset 0 0 80px rgba(255, 94, 0, 0.15), 0 0 50px rgba(255, 94, 0, 0.3) !important; }
+
+        @keyframes shake {
+            0% { transform: translate(1px, 1px) rotate(0deg); }
+            20% { transform: translate(-3px, 0px) rotate(2deg); }
+            40% { transform: translate(3px, 2px) rotate(-2deg); }
+            60% { transform: translate(-3px, 1px) rotate(2deg); }
+            80% { transform: translate(1px, -1px) rotate(-1deg); }
+            100% { transform: translate(0px, 0px) rotate(0deg); } 
         }
-        .btn:disabled { background: #30363d; cursor: not-allowed; opacity: 0.5; }
+        .shaking { animation: shake 0.4s cubic-bezier(.36,.07,.19,.97) none; }
+        
+        /* Leaderboard Panel Layout */
+        #right-panel { display: flex; flex-direction: column; height: 100%; }
+        #score-board { overflow-y: auto; flex-grow: 1; padding-right: 5px; }
+        #score-board::-webkit-scrollbar { width: 4px; }
+        #score-board::-webkit-scrollbar-thumb { background: var(--accent); border-radius: 4px; }
 
-        #game-area { display: flex; align-items: center; justify-content: center; position: relative; background: #000; border-radius: 8px; border: 2px solid #30363d; }
-        canvas { background: #000; display: block; box-shadow: 0 0 20px rgba(0,0,0,0.5); }
-
-        .score-item { padding: 12px 0; border-bottom: 1px solid #30363d; font-size: 0.85rem; }
-        .score-meta { color: #8b949e; font-size: 0.75rem; margin-top: 6px; }
-
-        .frozen { opacity: 0.3; pointer-events: none; }
-
-        #shape-preview {
-            width: 45px; height: 45px; border: 1px solid #58a6ff; 
-            border-radius: 4px; display: flex; align-items: center; 
-            justify-content: center; font-size: 26px; background: #0d1117;
-        }
-
-        #overlay {
-            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
-            background: rgba(0,0,0,0.85); display: flex; flex-direction: column;
-            align-items: center; justify-content: center; display: none; z-index: 10;
-        }
+        .legend-box { display:flex; gap:10px; font-size:0.75rem; text-align:left; background:#000; padding:10px; border-radius:6px; border:1px solid #333; line-height: 1.4;}
     </style>
 </head>
 <body>
@@ -89,8 +83,8 @@
 <div id="main-layout">
     <aside id="settings-panel">
         <div class="nav-header">
-            <a href="dashboard.html" class="back-btn">&larr; Back to Home</a>
-            <h3 style="margin:0; font-size: 1.1rem; color: var(--accent);">Game Config</h3>
+            <a href="dashboard.html" class="back-btn">&larr; Dashboard</a>
+            <h3 style="margin:0; font-size: 0.9rem; color: var(--accent); letter-spacing: 1px;">CONFIG</h3>
         </div>
         
         <div id="ui-controls">
@@ -102,68 +96,120 @@
                     <option value="600">Large (30x30)</option>
                 </select>
             </div>
-            
             <div class="input-group">
                 <label>Wall Mode</label>
                 <select id="wall-mode">
-                    <option value="solid">Solid (Thick Walls)</option>
-                    <option value="pass">Ghost (Pass-thru Walls)</option>
+                    <option value="solid">Solid (Fire Walls)</option>
+                    <option value="pass" selected>Ghost (Pass-thru)</option>
                 </select>
             </div>
-            
             <div class="input-group">
-                <label>Maze Complexity (💀 Skulls)</label>
+                <label>🪨 Stone Count</label>
                 <input type="range" id="maze-complexity" min="0" max="30" value="10">
             </div>
-
             <div class="input-group">
-                <label>Snake Speed (1 = Slow, 10 = Fast)</label>
+                <label>⚡ Base Speed</label>
                 <input type="range" id="snake-speed" min="1" max="10" value="5">
             </div>
-            
             <div class="input-group">
-                <label>Snake Head Shape</label>
-                <div style="display: flex; gap: 10px; align-items: center;">
+                <label>Snake Avatar & Hue</label>
+                <div style="display: flex; gap: 8px;">
                     <select id="snake-shape" style="flex-grow:1">
-                        <option value="😀">Grinning Face (😀)</option>
-                        <option value="😁">Beaming Smile (😁)</option>
-                        <option value="😉">Winking Face (😉)</option>
-                        <option value="🤩">Star-Struck (🤩)</option>
+                        <option value="😀" selected>Grin (😀)</option>
+                        <option value="😈">Devil (😈)</option>
+                        <option value="😎">Cool (😎)</option>
+                        <option value="🤖">Robot (🤖)</option>
                         <option value="hexagon">Hexagon</option>
                         <option value="circle">Circle</option>
-                        <option value="square">Classic Square</option>
+                        <option value="square">Square</option>
                     </select>
-                    <div id="shape-preview">😀</div>
+                    <input type="color" id="snake-color" value="#ffbb00" style="width: 40px; padding: 0;">
                 </div>
             </div>
             
-            <div class="input-group">
-                <label>Body Color</label>
-                <input type="color" id="snake-color" value="#3fb950" style="height:40px; width:100%; cursor:pointer;">
+            <div class="input-group" style="background: rgba(255, 94, 0, 0.1); padding: 8px; border-radius: 6px; border: 1px solid var(--pro); margin-top: 5px;">
+                <label style="color: var(--pro); font-weight: 900; letter-spacing: 1px;">🌪️ PRO MODE</label>
+                <div class="toggle-row">
+                    <span style="font-size: 0.7rem; color:#ff9d66;">Global Ranked Match</span> 
+                    <input type="checkbox" id="t-pro" checked>
+                </div>
+            </div>
+
+            <div class="input-group" style="margin-top: 5px;">
+                <div class="toggle-row"><span>🔊 Audio FX</span> <input type="checkbox" id="t-sound" checked></div>
             </div>
         </div>
 
-        <button id="start-btn" class="btn">START MISSION</button>
-        
-        <div style="margin-top:auto; padding:15px; background:#0d1117; border-radius:4px; text-align: center; border: 1px solid #30363d;">
-            <small style="color: #8b949e; text-transform: uppercase; letter-spacing: 1px;">Current Score</small>
-            <div id="score-val" style="font-size:2.5rem; font-weight:bold; color:var(--success)">0</div>
+        <div class="bottom-anchors">
+            <div style="background:#000; border-radius:6px; text-align:center; padding: 12px; border: 1px solid #222;">
+                <div style="color: #666; font-size: 0.7rem; text-transform: uppercase; letter-spacing: 2px;">Live Score</div>
+                <div id="score-val" style="font-size:2.4rem; font-weight:900; color:var(--success); text-shadow: 0 0 20px rgba(57,255,20,0.5);">0</div>
+            </div>
         </div>
     </aside>
 
     <main id="game-area">
-        <canvas id="gameCanvas"></canvas>
-        <div id="overlay">
-            <h1 style="color:var(--danger); margin-bottom:5px; font-size: 2.5rem;">MISSION FAILED</h1>
-            <p id="final-stats" style="text-align: center; line-height: 1.6; color: #ccc; font-size: 1.1rem;"></p>
-            <button onclick="unlockAndReset()" class="btn" style="background:var(--accent); margin-top:20px; padding: 12px 40px; width:auto;">Try Again</button>
+        <div id="canvas-wrapper">
+            <canvas id="gameCanvas"></canvas>
+        </div>
+        
+        <div id="start-overlay" class="overlay-screen" style="display: flex;">
+            <button id="start-btn" class="btn">START GAME</button>
+            <p style="color: #888; margin-top: 15px; font-size: 0.9rem; letter-spacing: 1px;">PRESS <strong style="color:white">SPACE</strong> TO BEGIN</p>
+            
+            <div class="legend-box" style="margin-top: 30px; background: rgba(0,0,0,0.6); padding: 15px;">
+                <div style="flex:1">
+                    <strong style="color:var(--success)">GOOD FOOD</strong><br>
+                    🌟 Jackpot (Combo+Invincible)<br>
+                    🧲 Magnet (Pulls Food)<br>
+                    🐀 Rat (+Big Pts, Moves)<br>
+                    🍄 Mushroom (+2x size ONLY in Rainbow Mode)
+                </div>
+                <div style="flex:1; margin-left: 10px;">
+                    <strong style="color:var(--danger)">HAZARDS</strong><br>
+                    💣 Bomb (Explodes!)<br>
+                    ☠️ Curse (Turns to Bones!)<br>
+                    🧊 Ice (Freezes!)<br>
+                    👻 Ghost (Soul fades!)<br>
+                    🍄 Poison (Shrinks outside Rainbow!)
+                </div>
+            </div>
+        </div>
+
+        <div id="pause-overlay" class="overlay-screen" style="display: none;">
+            <h1 style="color:white; font-size: 3rem; letter-spacing: 10px;">PAUSED</h1>
+            <p style="color:var(--accent); font-family: monospace; font-size: 1.2rem;">PRESS SPACE TO RESUME</p>
+        </div>
+
+        <div id="overlay" class="overlay-screen" style="display: none;">
+            <h1 id="death-title" style="color:var(--danger); margin-bottom:5px; font-size: 3.5rem; text-shadow: 0 0 30px var(--danger); font-weight: 900; letter-spacing: 2px; text-transform: uppercase;">CRASHED!</h1>
+            <p id="final-stats" style="text-align: center; line-height: 1.8; color: #fff; font-size: 1.1rem; background: rgba(0,0,0,0.8); padding: 20px; border-radius: 8px; border: 1px solid var(--danger);"></p>
+            <button id="try-again-btn" class="btn" style="background:var(--accent); color:black; margin-top:20px; box-shadow: 0 0 20px rgba(0,240,255,0.4);">TRY AGAIN</button>
+            <p style="color: #888; margin-top: 15px; font-size: 0.9rem; letter-spacing: 1px;">PRESS <strong style="color:white">SPACE</strong> TO RESTART</p>
         </div>
     </main>
 
-    <aside>
-        <h4 style="margin:0 0 10px 0; border-bottom: 1px solid #30363d; padding-bottom: 10px; color: var(--accent);">Live Leaderboard</h4>
-        <div id="score-board" style="overflow-y:auto; flex-grow: 1;">
-            <div id="leaderboard-status" style="padding: 10px; color: #8b949e;">Connecting to Supabase...</div>
+    <aside id="right-panel">
+        <h4 style="margin:0 0 10px 0; border-bottom: 1px solid #30363d; padding-bottom: 10px; color: var(--accent); display: flex; justify-content: space-between; align-items: flex-end;">
+            <span style="font-size: 1rem; letter-spacing: 1px;">PRO RANKS</span>
+            <span style="font-size: 0.7rem; color: #666;">TOP 15</span>
+        </h4>
+        <div id="score-board">
+            <div id="leaderboard-status" style="padding: 10px; color: #666; font-family: monospace;">Establishing uplink...</div>
+        </div>
+        
+        <div style="margin-top: 10px; padding-top: 10px; border-top: 1px solid #30363d;">
+            <div style="font-size: 0.7rem; color: #888; margin-bottom: 5px;">
+                <strong style="color:var(--accent)">CONTROLS:</strong> Arrows/Swipe move. Space=Pause.
+            </div>
+            <div class="legend-box">
+                <div style="flex:1">
+                    <strong style="color:var(--success)">GOOD</strong><br>🌟 🧲 🐀<br>🍄<span style="font-size:0.6rem">(Rainbow)</span>
+                </div>
+                <div style="flex:1; border-left:1px dashed #333; padding-left:10px;">
+                    <strong style="color:var(--danger)">BAD</strong><br>💣 ☠️ 🧊 👻<br>🪨<span style="font-size:0.6rem">(Stone)</span>
+                </div>
+            </div>
         </div>
     </aside>
 </div>
@@ -173,210 +219,816 @@
     const ctx = canvas.getContext('2d');
     const ui = document.getElementById('ui-controls');
     const startBtn = document.getElementById('start-btn');
+    const tryAgainBtn = document.getElementById('try-again-btn');
+    const startOverlay = document.getElementById('start-overlay');
     const overlay = document.getElementById('overlay');
-    const shapeSelect = document.getElementById('snake-shape');
-    const shapePreview = document.getElementById('shape-preview');
+    const pauseOverlay = document.getElementById('pause-overlay');
+    const gameArea = document.getElementById('game-area');
 
-    let gridSize = 20;
-    let tileCount = 20; 
-    let snake = []; 
-    let food = {x: -10, y: -10}; 
-    let innerWalls = []; 
-    let dx = 1, dy = 0, score = 0, interval, gameRunning = false;
+    // State Variables
+    let gridSize = 20, tileCount = 20, arenaSize = 400; 
+    let snake = [], innerWalls = []; 
+    let dx = 1, dy = 0, score = 0, interval, gameRunning = false, isPaused = false;
+    let changingDirection = false, frameCount = 0, tickDelayMs = 100;
+    let dashOffset = 0; 
     
-    // NEW FLAG: Prevents rapid double-keypress deaths
-    let changingDirection = false;
+    // Pro-Level Input Queue
+    let inputQueue = [];
 
-    document.addEventListener("DOMContentLoaded", () => {
-        setupBlankCanvas();
-    });
+    // Death Animations
+    let isDying = false, deathReason = "", deathFrame = 0;
 
-    shapeSelect.addEventListener('change', () => {
-        const val = shapeSelect.value;
-        const previewMap = { 'hexagon': '⬢', 'circle': '●', 'square': '■' };
-        shapePreview.innerText = previewMap[val] || val;
-    });
+    // Entities
+    const animalEmojis = ['🪲','🐸','🦗','🐹','🐇','🐿️','🐥','🐟','🦐','🥚'];
+    let normalFood = {x: -1, y: -1, emoji: '🪲'};
+    let activeItems = []; 
+    let particles = [], floatingTexts = [];
+    
+    // Powerups
+    let combo = 1, comboTimer = 0;
+    let magnetActive = 0, invincibilityActive = 0;
 
-    function setupBlankCanvas() {
-        const size = parseInt(document.getElementById('arena-size').value) || 400;
-        canvas.width = canvas.height = size;
-        tileCount = size / gridSize;
-        
-        ctx.fillStyle = "black";
-        ctx.fillRect(0, 0, canvas.width, canvas.height);
-        
-        const mode = document.getElementById('wall-mode').value;
-        canvas.style.border = (mode === 'solid') ? "8px solid #444" : "2px solid var(--accent)";
+    // PRO Mode State
+    let cfg = { sound: true, pro: true, particles: true, grid: true };
+    let arenaRot = 0, targetArenaRot = 0, startArenaRot = 0;
+    let proState = 'IDLE'; 
+    let nextRotationFrame = 0, telegraphFramesLeft = 0;
+    let uprightRenderQueue = [];
+
+    // --- AUDIO ENGINE ---
+    const AudioContext = window.AudioContext || window.webkitAudioContext;
+    let audioCtx = null;
+    function initAudio() {
+        if (!audioCtx) audioCtx = new AudioContext();
+        if (audioCtx.state === 'suspended') audioCtx.resume();
+    }
+    function playSound(type) {
+        if (!cfg.sound || !audioCtx) return;
+        const osc = audioCtx.createOscillator(); const gain = audioCtx.createGain();
+        osc.connect(gain); gain.connect(audioCtx.destination);
+        const now = audioCtx.currentTime;
+
+        if (type === 'eat') {
+            osc.type = 'sine'; osc.frequency.setValueAtTime(600 + (combo*50), now); osc.frequency.exponentialRampToValueAtTime(1200 + (combo*100), now + 0.1);
+            gain.gain.setValueAtTime(0.3, now); gain.gain.exponentialRampToValueAtTime(0.01, now + 0.1);
+            osc.start(now); osc.stop(now + 0.1);
+        } else if (type === 'gold') {
+            osc.type = 'square'; osc.frequency.setValueAtTime(800, now); osc.frequency.setValueAtTime(1600, now + 0.3);
+            gain.gain.setValueAtTime(0.2, now); gain.gain.linearRampToValueAtTime(0, now + 0.5);
+            osc.start(now); osc.stop(now + 0.5);
+        } else if (type === 'magnet') {
+            osc.type = 'triangle'; osc.frequency.setValueAtTime(400, now); osc.frequency.linearRampToValueAtTime(800, now + 0.2);
+            gain.gain.setValueAtTime(0.2, now); gain.gain.linearRampToValueAtTime(0, now + 0.3);
+            osc.start(now); osc.stop(now + 0.3);
+        } else if (type === 'poison') {
+            osc.type = 'sawtooth'; osc.frequency.setValueAtTime(300, now); osc.frequency.linearRampToValueAtTime(50, now + 0.4);
+            gain.gain.setValueAtTime(0.4, now); gain.gain.linearRampToValueAtTime(0, now + 0.4);
+            osc.start(now); osc.stop(now + 0.4);
+        } else if (type === 'shatter' || type === 'cut') {
+            osc.type = 'triangle'; osc.frequency.setValueAtTime(1200, now); osc.frequency.exponentialRampToValueAtTime(2000, now + 0.2);
+            gain.gain.setValueAtTime(0.5, now); gain.gain.exponentialRampToValueAtTime(0.01, now + 0.2);
+            osc.start(now); osc.stop(now + 0.2);
+        } else if (type === 'explosion') {
+            osc.type = 'square'; osc.frequency.setValueAtTime(100, now); osc.frequency.exponentialRampToValueAtTime(10, now + 0.8);
+            gain.gain.setValueAtTime(0.8, now); gain.gain.exponentialRampToValueAtTime(0.01, now + 0.8);
+            osc.start(now); osc.stop(now + 0.8);
+        } else if (type === 'splat') {
+            osc.type = 'sawtooth'; osc.frequency.setValueAtTime(200, now); osc.frequency.exponentialRampToValueAtTime(30, now + 0.2);
+            gain.gain.setValueAtTime(0.6, now); gain.gain.exponentialRampToValueAtTime(0.01, now + 0.2);
+            osc.start(now); osc.stop(now + 0.2);
+        } else if (type === 'bones') {
+            osc.type = 'square'; osc.frequency.setValueAtTime(600, now); osc.frequency.setValueAtTime(400, now + 0.07); osc.frequency.setValueAtTime(800, now + 0.15);
+            gain.gain.setValueAtTime(0.4, now); gain.gain.linearRampToValueAtTime(0.01, now + 0.2);
+            osc.start(now); osc.stop(now + 0.2);
+        } else if (type === 'ghost') {
+            osc.type = 'sine'; osc.frequency.setValueAtTime(400, now); osc.frequency.linearRampToValueAtTime(800, now + 1.0);
+            gain.gain.setValueAtTime(0.3, now); gain.gain.linearRampToValueAtTime(0.01, now + 1.0);
+            osc.start(now); osc.stop(now + 1.0);
+        } else if (type === 'crash') {
+            osc.type = 'sawtooth'; osc.frequency.setValueAtTime(150, now); osc.frequency.exponentialRampToValueAtTime(10, now + 0.6);
+            gain.gain.setValueAtTime(0.5, now); gain.gain.exponentialRampToValueAtTime(0.01, now + 0.6);
+            osc.start(now); osc.stop(now + 0.6);
+        }
     }
 
-    function generateMaze() {
+    document.addEventListener("DOMContentLoaded", setupCanvas);
+
+    function setupCanvas() {
+        arenaSize = parseInt(document.getElementById('arena-size').value) || 400;
+        tileCount = arenaSize / gridSize;
+        const padding = arenaSize * 0.45; 
+        canvas.width = arenaSize + padding; canvas.height = arenaSize + padding;
+        draw(); 
+    }
+
+    function unlockAndReset() {
+        gameRunning = false; isPaused = false; isDying = false;
+        clearInterval(interval);
+        
+        ui.classList.remove('frozen'); 
+        startOverlay.style.display = 'flex'; 
+        overlay.style.display = 'none';
+        pauseOverlay.style.display = 'none';
+        gameArea.classList.remove('pro-active');
+        
+        arenaRot = 0; targetArenaRot = 0; startArenaRot = 0; score = 0;
+        document.getElementById('score-val').innerText = "0";
+        snake = []; innerWalls = []; activeItems = []; particles = []; floatingTexts = [];
+        normalFood = {x:-1, y:-1, emoji: '🪲'}; inputQueue = [];
+        
+        setupCanvas();
+    }
+
+    function generateStones() {
         innerWalls = [];
         const complexity = parseInt(document.getElementById('maze-complexity').value) || 0;
         for (let i = 0; i < complexity; i++) {
-            let wx = Math.floor(Math.random() * tileCount);
-            let wy = Math.floor(Math.random() * tileCount);
+            let wx = Math.floor(Math.random() * tileCount); let wy = Math.floor(Math.random() * tileCount);
             if (Math.abs(wx - 10) > 3 || Math.abs(wy - 10) > 3) {
-                innerWalls.push({x: wx, y: wy});
+                innerWalls.push({x: wx, y: wy, targetX: wx, targetY: wy, startX: wx, startY: wy, isMoving: false});
             }
         }
     }
 
-    function spawnFood() {
-        let valid = false;
-        let attempts = 0;
-        while (!valid && attempts < 200) {
-            food = { x: Math.floor(Math.random() * tileCount), y: Math.floor(Math.random() * tileCount) };
-            const inSnake = snake.some(s => s.x === food.x && s.y === food.y);
-            const inWall = innerWalls.some(w => w.x === food.x && w.y === food.y);
-            if (!inSnake && !inWall) valid = true;
+    function getEmptySpot() {
+        let valid = false, attempts = 0, spot = {x:0, y:0};
+        while (!valid && attempts < 500) {
+            spot.x = Math.floor(Math.random() * tileCount); spot.y = Math.floor(Math.random() * tileCount);
+            const inSnake = snake.some(s => s.x === spot.x && s.y === spot.y);
+            const inWall = innerWalls.some(w => (Math.round(w.x) === spot.x && Math.round(w.y) === spot.y) || (w.targetX === spot.x && w.targetY === spot.y));
+            const inFood = (normalFood.x === spot.x && normalFood.y === spot.y);
+            const inItems = activeItems.some(i => i.x === spot.x && i.y === spot.y);
+            if (!inSnake && !inWall && !inFood && !inItems) valid = true;
             attempts++;
+        }
+        return spot;
+    }
+
+    function spawnFood() { 
+        normalFood = getEmptySpot(); 
+        normalFood.emoji = animalEmojis[Math.floor(Math.random() * animalEmojis.length)];
+    }
+    
+    function spawnItems() {
+        if (Math.random() > 0.96) { 
+            let spot = getEmptySpot();
+            const pool = ['gold', 'magnet', 'rat', 'mushroom', 'mushroom', 'mushroom', 'bomb', 'skull', 'ice', 'ghost'];
+            let type = pool[Math.floor(Math.random() * pool.length)];
+            
+            if (type === 'magnet' && magnetActive > 0) return; 
+            if (type === 'gold' && activeItems.some(i => i.type === 'gold')) return; 
+
+            activeItems.push({
+                x: spot.x, y: spot.y, type: type, 
+                expireAt: frameCount + (type === 'mushroom' ? 40 : 80) 
+            });
         }
     }
 
+    function spawnParticles(x, y, color, amount) {
+        for (let i = 0; i < amount; i++) {
+            particles.push({
+                x: x * gridSize + gridSize/2, y: y * gridSize + gridSize/2,
+                vx: (Math.random() - 0.5) * 14, vy: (Math.random() - 0.5) * 14,
+                life: 1.0, color: color, size: Math.random() * 5 + 2
+            });
+        }
+    }
+
+    function popupText(x, y, text, color) {
+        floatingTexts.push({ x: x * gridSize + 10, y: y * gridSize, text: text, color: color, life: 1.0 });
+    }
+
+    function calculateNextRotation() {
+        const timeAliveMs = frameCount * tickDelayMs;
+        let delayMs = 0;
+        if (timeAliveMs < 300000) delayMs = Math.random() < 0.2 ? Math.random() * 5000 + 5000 : Math.random() * 15000 + 10000;
+        else delayMs = Math.random() * 10000 + 5000; 
+        return frameCount + Math.floor(delayMs / tickDelayMs);
+    }
+
     function startGame() {
-        ui.classList.add('frozen');
-        startBtn.disabled = true;
-        overlay.style.display = 'none';
+        initAudio();
+        cfg.sound = document.getElementById('t-sound').checked;
+        cfg.pro = document.getElementById('t-pro').checked;
         
-        setupBlankCanvas();
+        ui.classList.add('frozen'); 
+        startOverlay.style.display = 'none';
+        overlay.style.display = 'none'; 
+        pauseOverlay.style.display = 'none';
+        
+        if (cfg.pro) gameArea.classList.add('pro-active');
+        else gameArea.classList.remove('pro-active');
+
+        setupCanvas();
         snake = [{x: 10, y: 10}, {x: 9, y: 10}, {x: 8, y: 10}];
-        generateMaze();
-        spawnFood();
+        generateStones(); spawnFood();
+        activeItems = []; particles = []; floatingTexts = []; inputQueue = [];
         
-        dx = 1; dy = 0; score = 0;
-        changingDirection = false;
+        dx = 1; dy = 0; score = 0; frameCount = 0; combo = 1; comboTimer = 0;
+        magnetActive = 0; invincibilityActive = 0;
+        arenaRot = 0; targetArenaRot = 0; proState = 'IDLE';
+        isDying = false; deathReason = ""; deathFrame = 0;
+        
+        const speedVal = parseInt(document.getElementById('snake-speed').value) || 5;
+        tickDelayMs = 210 - (speedVal * 15);
+        nextRotationFrame = calculateNextRotation();
+
         document.getElementById('score-val').innerText = "0";
 
         draw();
-        
-        const speedVal = parseInt(document.getElementById('snake-speed').value) || 5;
-        const delay = 210 - (speedVal * 15);
-
-        gameRunning = true;
+        gameRunning = true; isPaused = false;
         if(interval) clearInterval(interval);
-        interval = setInterval(update, delay);
+        interval = setInterval(update, tickDelayMs);
+    }
+
+    function togglePause() {
+        if (!gameRunning || isDying) return;
+        isPaused = !isPaused;
+        pauseOverlay.style.display = isPaused ? 'flex' : 'none';
+    }
+
+    function initDeath(reason) {
+        isDying = true; deathReason = reason; deathFrame = 0;
+        magnetActive = 0; invincibilityActive = 0; comboTimer = 0; 
+        
+        if (reason === 'bomb') playSound('explosion');
+        else if (reason === 'ice') playSound('shatter');
+        else if (reason === 'ghost') playSound('ghost');
+        else if (reason === 'skull') playSound('bones');
+        else if (reason === 'stone') playSound('splat');
+        else playSound('crash'); 
+    }
+
+    function executeDeathAnimation() {
+        deathFrame++;
+        const head = snake[0];
+        
+        if (deathFrame === 1) {
+            if (deathReason === 'bomb') { spawnParticles(head.x, head.y, '#ff5e00', 60); spawnParticles(head.x, head.y, '#ff0000', 40); }
+            else if (deathReason === 'stone') spawnParticles(head.x, head.y, '#cc0000', 40); 
+            else if (deathReason === 'ice') spawnParticles(head.x, head.y, 'var(--ice)', 50);
+            else if (deathReason === 'skull') spawnParticles(head.x, head.y, '#ffffff', 40);
+            else spawnParticles(head.x, head.y, '#ffffff', 30);
+        }
+        
+        let segmentsPerFrame = 3;
+        let startIdx = (deathFrame - 1) * segmentsPerFrame;
+        let endIdx = deathFrame * segmentsPerFrame;
+        
+        for(let seqIdx = startIdx; seqIdx < endIdx; seqIdx++) {
+            if (seqIdx < snake.length) {
+                if (seqIdx === 0) {
+                    if (deathReason === 'bomb') snake[seqIdx].deadEmoji = "💀";
+                    else if (deathReason === 'ice') snake[seqIdx].deadEmoji = "🥶";
+                    else if (deathReason === 'skull') snake[seqIdx].deadEmoji = "💀";
+                    else if (deathReason === 'stone') snake[seqIdx].deadEmoji = "🩸";
+                    else if (deathReason === 'ghost') snake[seqIdx].deadEmoji = "💨";
+                    else snake[seqIdx].deadEmoji = "😵";
+                } else {
+                    if (deathReason === 'ice') { snake[seqIdx].deadEmoji = "🔵"; playSound('shatter'); }
+                    else if (deathReason === 'skull') { snake[seqIdx].deadEmoji = "🦴"; playSound('bones'); }
+                    else if (deathReason === 'bomb') { snake[seqIdx].deadEmoji = "🔥"; }
+                    else if (deathReason === 'stone') { snake[seqIdx].deadEmoji = "🩸"; playSound('splat'); }
+                    else if (deathReason === 'ghost') { snake[seqIdx].deadEmoji = "💨"; }
+                    else { snake[seqIdx].deadEmoji = "💥"; }
+                }
+            }
+        }
+        
+        let maxFrames = Math.ceil(snake.length / segmentsPerFrame) + 15;
+
+        if (deathFrame > maxFrames) {
+            let msg = "CRASHED!";
+            if (deathReason === 'bomb') msg = "BLOWN TO SMITHEREENS!";
+            else if (deathReason === 'skull') msg = "CURSED TO BONE!";
+            else if (deathReason === 'ice') msg = "FROZEN SOLID!";
+            else if (deathReason === 'ghost') msg = "SOUL EXTRACTED!";
+            else if (deathReason === 'stone') msg = "SMASHED ON STONE!";
+            else if (deathReason === 'self') msg = "ATE YOURSELF!";
+            finalizeGameOver(msg);
+        }
+        draw();
+    }
+
+    function finalizeGameOver(titleMsg) {
+        gameRunning = false; clearInterval(interval);
+        canvas.classList.remove('shaking'); void canvas.offsetWidth; canvas.classList.add('shaking');
+        
+        ui.classList.remove('frozen'); // UNFREEZE SETTINGS MENU HERE
+
+        document.getElementById('death-title').innerText = titleMsg;
+        const modeText = document.getElementById('wall-mode').value.toUpperCase() + (cfg.pro ? " 🌪️PRO" : "");
+        const sizeText = document.getElementById('arena-size').options[document.getElementById('arena-size').selectedIndex].text;
+        const speed = document.getElementById('snake-speed').value;
+        
+        setTimeout(() => {
+            document.getElementById('final-stats').innerHTML = `
+                <div style="font-size:3rem; color:var(--success); font-weight:900; margin-bottom:15px; text-shadow: 0 0 20px rgba(57,255,20,0.4);">SCORE: ${score}</div>
+                <div style="color:var(--accent); font-size: 1.2rem; margin-bottom: 10px;"><b>${modeText}</b></div>
+                Arena: <b>${sizeText}</b> | Speed: <b>Lvl ${speed}</b>
+            `;
+            overlay.style.display = 'flex';
+        }, 500);
+
+        if (typeof window.triggerDatabaseSave === 'function' && cfg.pro) {
+            window.triggerDatabaseSave({ 
+                score, mode: modeText, sizeText, skulls: document.getElementById('maze-complexity').value, 
+                color: document.getElementById('snake-color').value, shape: document.getElementById('snake-shape').value, 
+                speed, innerWalls 
+            });
+        }
     }
 
     function update() {
-        if (!gameRunning) return;
+        if (!gameRunning || isPaused) return;
+        if (isDying) { executeDeathAnimation(); return; }
+
+        frameCount++;
         
-        // Unlock direction change for this new frame
-        changingDirection = false;
+        // Apply Input Queue
+        if (inputQueue.length > 0) {
+            let nextMove = inputQueue.shift();
+            dx = nextMove.x; dy = nextMove.y;
+        }
+
+        if (comboTimer > 0) { comboTimer--; if (comboTimer <= 0) combo = 1; }
+        if (magnetActive > 0) magnetActive--;
+        if (invincibilityActive > 0) invincibilityActive--;
+
+        const baseSpeedVal = parseInt(document.getElementById('snake-speed').value) || 5;
+        let currentDelay = 210 - (baseSpeedVal * 15);
+        if (invincibilityActive > 0) currentDelay *= 0.7; 
+        else if (magnetActive > 0) currentDelay *= 0.8; 
         
+        if (interval && tickDelayMs !== currentDelay) {
+            clearInterval(interval); tickDelayMs = currentDelay; interval = setInterval(update, tickDelayMs);
+        }
+
+        activeItems = activeItems.filter(item => frameCount < item.expireAt);
+
+        activeItems.forEach(item => {
+            if (item.type === 'rat' && frameCount % 6 === 0) {
+                let dirs = [{x:1,y:0}, {x:-1,y:0}, {x:0,y:1}, {x:0,y:-1}];
+                let d = dirs[Math.floor(Math.random()*4)];
+                let nx = item.x + d.x, ny = item.y + d.y;
+                if (nx >= 0 && nx < tileCount && ny >= 0 && ny < tileCount && !innerWalls.some(w => Math.round(w.x)===nx && Math.round(w.y)===ny)) {
+                    item.x = nx; item.y = ny;
+                }
+            }
+        });
+
+        // --- PRO MODE ENGINE ---
+        if (cfg.pro) {
+            if (proState === 'IDLE') {
+                if (frameCount >= nextRotationFrame) {
+                    proState = 'TELEGRAPH'; telegraphFramesLeft = Math.floor(2000 / tickDelayMs); 
+                    const angles = [90, 180, 270, 360];
+                    targetArenaRot = arenaRot + angles[Math.floor(Math.random()*4)] * (Math.random() < 0.5 ? 1 : -1);
+
+                    innerWalls.forEach(w => {
+                        w.isMoving = false;
+                        if (Math.random() < 0.6) { 
+                            w.isMoving = true; w.startX = Math.round(w.x); w.startY = Math.round(w.y);
+                            let attempts = 0;
+                            while (attempts < 15) {
+                                if (Math.random() < 0.5) { w.targetX = Math.floor(Math.random() * tileCount); w.targetY = w.startY; } 
+                                else { w.targetX = w.startX; w.targetY = Math.floor(Math.random() * tileCount); }
+                                if (!snake.some(s => s.x === w.targetX && s.y === w.targetY)) break;
+                                attempts++;
+                            }
+                        }
+                    });
+                }
+            } else if (proState === 'TELEGRAPH') {
+                telegraphFramesLeft--;
+                if (telegraphFramesLeft <= 0) { proState = 'ROTATING'; startArenaRot = arenaRot; }
+            } else if (proState === 'ROTATING') {
+                const elapsedSecs = frameCount * (tickDelayMs / 1000);
+                const currentRPM = 2 + Math.min(1, elapsedSecs / 300); 
+                const step = (currentRPM * 360 / 60) * (tickDelayMs / 1000); 
+                let diff = targetArenaRot - arenaRot;
+                if (Math.abs(diff) <= step) {
+                    arenaRot = targetArenaRot; proState = 'IDLE'; nextRotationFrame = calculateNextRotation();
+                    innerWalls.forEach(w => { w.x = w.targetX; w.y = w.targetY; w.isMoving = false; });
+                } else {
+                    arenaRot += Math.sign(diff) * step;
+                    let progress = Math.max(0, Math.min(1, (arenaRot - startArenaRot) / (targetArenaRot - startArenaRot)));
+                    innerWalls.forEach(w => {
+                        if (w.isMoving) {
+                            w.x = w.startX + (w.targetX - w.startX) * progress;
+                            w.y = w.startY + (w.targetY - w.startY) * progress;
+                        }
+                    });
+                }
+            }
+        }
+
+        // --- FLAWLESS MAGNET LOGIC ---
+        if (magnetActive > 0) {
+            let hx = snake[0].x, hy = snake[0].y;
+            const pullSpeed = 0.5; 
+            
+            if (Math.abs(normalFood.x - hx) < 5 && Math.abs(normalFood.y - hy) < 5) {
+                if (normalFood.x < hx) normalFood.x = Math.min(hx, normalFood.x + pullSpeed);
+                else if (normalFood.x > hx) normalFood.x = Math.max(hx, normalFood.x - pullSpeed);
+                if (normalFood.y < hy) normalFood.y = Math.min(hy, normalFood.y + pullSpeed);
+                else if (normalFood.y > hy) normalFood.y = Math.max(hy, normalFood.y - pullSpeed);
+            }
+
+            activeItems.forEach(item => {
+                if (['gold', 'magnet', 'rat', 'mushroom'].includes(item.type) && Math.abs(item.x - hx) < 5 && Math.abs(item.y - hy) < 5) {
+                    if (item.type === 'mushroom' && invincibilityActive <= 0) return; // Do not pull poison
+
+                    if (item.x < hx) item.x = Math.min(hx, item.x + pullSpeed);
+                    else if (item.x > hx) item.x = Math.max(hx, item.x - pullSpeed);
+                    if (item.y < hy) item.y = Math.min(hy, item.y + pullSpeed);
+                    else if (item.y > hy) item.y = Math.max(hy, item.y - pullSpeed);
+                }
+            });
+        }
+
+        // --- MOVEMENT & WALL COLLISIONS ---
         const head = {x: snake[0].x + dx, y: snake[0].y + dy};
         const wallMode = document.getElementById('wall-mode').value;
 
         if (wallMode === 'solid') {
-            if (head.x < 0 || head.x >= tileCount || head.y < 0 || head.y >= tileCount) return gameOver();
+            if (head.x < 0 || head.x >= tileCount || head.y < 0 || head.y >= tileCount) {
+                if (invincibilityActive > 0) {
+                    let newDx = 0, newDy = 0;
+                    if (head.x < 0 || head.x >= tileCount) { newDx = 0; newDy = head.y < tileCount/2 ? 1 : -1; } 
+                    else { newDy = 0; newDx = head.x < tileCount/2 ? 1 : -1; }
+                    dx = newDx; dy = newDy;
+                    head.x = snake[0].x + dx; head.y = snake[0].y + dy;
+                } else return initDeath('wall');
+            }
         } else {
-            if (head.x < 0) head.x = tileCount - 1;
-            if (head.x >= tileCount) head.x = 0;
-            if (head.y < 0) head.y = tileCount - 1;
-            if (head.y >= tileCount) head.y = 0;
+            if (head.x < 0) head.x = tileCount - 1; if (head.x >= tileCount) head.x = 0;
+            if (head.y < 0) head.y = tileCount - 1; if (head.y >= tileCount) head.y = 0;
         }
 
-        if (innerWalls.some(w => w.x === head.x && w.y === head.y)) return gameOver();
+        // --- STONE COLLISION ---
+        let hitStoneIdx = -1;
+        for (let i=0; i<innerWalls.length; i++) {
+            let w = innerWalls[i];
+            if (snake.some(s => Math.abs(w.x - s.x) < 0.5 && Math.abs(w.y - s.y) < 0.5) || (Math.abs(w.x - head.x) < 0.5 && Math.abs(w.y - head.y) < 0.5)) {
+                hitStoneIdx = i; break;
+            }
+        }
         
-        // Edge case fix: Ignore the very tip of the tail for self-collision since it will move out of the way
-        const isEating = (head.x === food.x && head.y === food.y);
-        const bodyToCheck = isEating ? snake : snake.slice(0, -1);
-        if (bodyToCheck.some(s => s.x === head.x && s.y === head.y)) return gameOver();
+        if (hitStoneIdx > -1) {
+            if (invincibilityActive > 0) {
+                innerWalls.splice(hitStoneIdx, 1); 
+                score += 50; playSound('gold'); popupText(head.x, head.y, "SMASH!", "#fff"); 
+                
+                let bestSpot = {x:0, y:0}; let validSpots = [];
+                for(let i=0; i<tileCount; i++) {
+                    for(let j=0; j<tileCount; j++) {
+                        if(snake.some(s=>s.x===i&&s.y===j)) continue;
+                        if(innerWalls.some(w=>Math.round(w.x)===i&&Math.round(w.y)===j)) continue;
+                        let d = Math.hypot(snake[0].x - i, snake[0].y - j);
+                        if(d > 8) validSpots.push({x:i, y:j}); 
+                    }
+                }
+                if (validSpots.length > 0) bestSpot = validSpots[Math.floor(Math.random() * validSpots.length)];
+                else bestSpot = getEmptySpot();
+                innerWalls.push({x:bestSpot.x, y:bestSpot.y, targetX:bestSpot.x, targetY:bestSpot.y, startX:bestSpot.x, startY:bestSpot.y, isMoving:false});
+            } else {
+                return initDeath('stone');
+            }
+        }
+        
+        // --- EATING LOGIC ---
+        let grew = false;
+        
+        if (Math.abs(head.x - normalFood.x) < 0.8 && Math.abs(head.y - normalFood.y) < 0.8) {
+            let pts = Math.floor(10 * combo); score += pts;
+            playSound('eat'); popupText(head.x, head.y, `+${pts}`, "#39ff14");
+            spawnFood(); grew = true;
+        } 
+
+        let hitItemIdx = activeItems.findIndex(i => Math.abs(head.x - i.x) < 0.8 && Math.abs(head.y - i.y) < 0.8);
+        if (hitItemIdx > -1) {
+            let item = activeItems[hitItemIdx];
+            
+            if (invincibilityActive > 0 && ['bomb', 'skull', 'ice', 'ghost'].includes(item.type)) {
+                activeItems.splice(hitItemIdx, 1);
+                let pts = Math.floor(10 * combo); score += pts;
+                playSound('eat'); popupText(head.x, head.y, `+${pts}`, "#fff");
+                grew = true;
+            } else {
+                activeItems.splice(hitItemIdx, 1); 
+
+                if (item.type === 'gold') {
+                    score += 100; playSound('gold'); popupText(head.x, head.y, "JACKPOT!", "var(--gold)");
+                    combo = 3; comboTimer = 100; invincibilityActive = 100; 
+                    snake.push({...snake[snake.length-1]}); grew = true;
+                } else if (item.type === 'magnet') {
+                    score += 30; playSound('magnet'); popupText(head.x, head.y, "MAGNET!", "var(--magnet)");
+                    magnetActive = 150; grew = true;
+                } else if (item.type === 'rat') {
+                    score += 50; playSound('eat'); popupText(head.x, head.y, "+50", "#aaa");
+                    grew = true;
+                } else if (item.type === 'mushroom') {
+                    if (invincibilityActive > 0) { 
+                        score += 50; playSound('gold'); popupText(head.x, head.y, "SUPER SHROOM!", "var(--success)");
+                        snake.push({...snake[snake.length-1]}); snake.push({...snake[snake.length-1]}); grew = true; 
+                    } else { 
+                        score = Math.max(0, score - 20); playSound('poison'); spawnParticles(head.x, head.y, 'var(--poison)', 20); popupText(head.x, head.y, "-20", "var(--poison)");
+                        combo = 1; comboTimer = 0;
+                        if (snake.length > 3) snake.pop(); if (snake.length > 3) snake.pop();
+                        grew = false; snake.pop(); 
+                    }
+                } else if (item.type === 'bomb') { return initDeath('bomb');
+                } else if (item.type === 'skull') { return initDeath('skull');
+                } else if (item.type === 'ice') { return initDeath('ice');
+                } else if (item.type === 'ghost') { return initDeath('ghost'); }
+            }
+        }
+
+        // --- SELF COLLISION (Ouroboros Cut) ---
+        let selfHitIdx = -1;
+        const bodyToCheck = (grew) ? snake : snake.slice(0, -1);
+        for (let i = 1; i < bodyToCheck.length; i++) {
+            if (bodyToCheck[i].x === head.x && bodyToCheck[i].y === head.y) { selfHitIdx = i; break; }
+        }
+
+        if (selfHitIdx > -1) {
+            if (invincibilityActive > 0) {
+                snake = snake.slice(0, selfHitIdx); 
+                playSound('cut'); spawnParticles(head.x, head.y, '#fff', 30); popupText(head.x, head.y, "TAIL CUT!", "#fff");
+                if (snake.length < 2) return initDeath('self'); 
+            } else return initDeath('self');
+        }
 
         snake.unshift(head);
-        if (isEating) {
-            score += 10;
-            document.getElementById('score-val').innerText = score;
-            spawnFood();
-        } else {
-            snake.pop();
-        }
+        if (!grew) snake.pop();
+
+        spawnItems();
+        document.getElementById('score-val').innerText = score;
         draw();
     }
 
+    function pushUpright(text, ax, ay, font, color, alpha=1.0, isGhost=false) {
+        uprightRenderQueue.push({text, ax, ay, font, color, alpha, isGhost});
+    }
+
     function draw() {
-        ctx.fillStyle = "black";
-        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        uprightRenderQueue = []; 
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
 
+        ctx.save();
+        ctx.translate(canvas.width/2, canvas.height/2);
+        ctx.rotate(arenaRot * Math.PI / 180);
+        ctx.translate(-arenaSize/2, -arenaSize/2);
+
+        ctx.fillStyle = "#080808"; ctx.fillRect(0, 0, arenaSize, arenaSize);
+
+        // Grid
+        ctx.strokeStyle = "rgba(255,255,255,0.05)"; ctx.lineWidth = 1;
+        for(let i=0; i<=arenaSize; i+=gridSize) {
+            ctx.beginPath(); ctx.moveTo(i, 0); ctx.lineTo(i, arenaSize); ctx.stroke();
+            ctx.beginPath(); ctx.moveTo(0, i); ctx.lineTo(arenaSize, i); ctx.stroke();
+        }
+
+        // Walls
         const mode = document.getElementById('wall-mode').value;
-        canvas.style.border = (mode === 'solid') ? "8px solid #444" : "2px solid var(--accent)";
+        if (mode === 'pass') {
+            dashOffset -= 8; 
+            ctx.strokeStyle = `rgba(255, 255, 255, ${0.4 + Math.sin(frameCount * 0.4) * 0.6})`;
+            ctx.lineWidth = 2; ctx.setLineDash([8, 6]); ctx.lineDashOffset = dashOffset;
+            ctx.strokeRect(0, 0, arenaSize, arenaSize); ctx.setLineDash([]); 
+        } else {
+            let gradient = ctx.createLinearGradient(0, 0, arenaSize, arenaSize);
+            gradient.addColorStop(0, "#ff003c"); gradient.addColorStop(0.5, "#ff5e00"); gradient.addColorStop(1, "#ffd700");
+            ctx.shadowColor = '#ff5e00'; ctx.shadowBlur = 15;
+            ctx.strokeStyle = gradient; ctx.lineWidth = 6;
+            ctx.strokeRect(0, 0, arenaSize, arenaSize); ctx.shadowBlur = 0; 
+        }
 
-        ctx.font = "16px Arial";
-        ctx.textAlign = "center";
-        ctx.textBaseline = "middle";
-        innerWalls.forEach(w => { ctx.fillText("💀", w.x * gridSize + 10, w.y * gridSize + 10); });
+        // Telegraph Path 
+        if (cfg.pro && (proState === 'TELEGRAPH' || proState === 'ROTATING')) {
+            let blinkAlpha = 0.4 + Math.abs(Math.sin(frameCount * 0.5)) * 0.5;
+            ctx.strokeStyle = `rgba(255, 255, 255, ${blinkAlpha})`; ctx.lineWidth = 2;
+            ctx.shadowColor = "white"; ctx.shadowBlur = 10;
+            innerWalls.forEach(w => {
+                if (w.isMoving) {
+                    const minX = Math.min(w.startX, w.targetX) * gridSize;
+                    const minY = Math.min(w.startY, w.targetY) * gridSize;
+                    const wth = (Math.abs(w.targetX - w.startX) + 1) * gridSize;
+                    const hgt = (Math.abs(w.targetY - w.startY) + 1) * gridSize;
+                    ctx.beginPath();
+                    if (ctx.roundRect) ctx.roundRect(minX, minY, wth, hgt, 8);
+                    else ctx.rect(minX, minY, wth, hgt); 
+                    ctx.stroke();
+                }
+            });
+            ctx.shadowBlur = 0;
+        }
 
-        ctx.fillStyle = "#ff4757";
-        ctx.beginPath(); ctx.arc(food.x * gridSize + 10, food.y * gridSize + 10, 7, 0, Math.PI * 2); ctx.fill();
+        // Stones & Food
+        innerWalls.forEach(w => pushUpright("🪨", w.x * gridSize + 10, w.y * gridSize + 10, "18px Arial", "white"));
+        let pR = 4 + Math.sin(frameCount * 0.3) * 2;
+        pushUpright(normalFood.emoji, normalFood.x * gridSize + 10, normalFood.y * gridSize + 10 - pR, "20px Arial", "white");
 
-        const color = document.getElementById('snake-color').value;
+        activeItems.forEach(item => {
+            let icon = ""; let ox = 0, oy = 0;
+            if (item.type === 'gold') icon = "🌟";
+            else if (item.type === 'magnet') icon = "🧲";
+            else if (item.type === 'mushroom') icon = "🍄";
+            else if (item.type === 'bomb') { icon = "💣"; ox = (Math.random()-0.5)*4; oy = (Math.random()-0.5)*4; }
+            else if (item.type === 'skull') icon = "☠️";
+            else if (item.type === 'ice') icon = "🧊";
+            else if (item.type === 'ghost') { icon = "👻"; oy = Math.sin(frameCount * 0.1) * 5; }
+            else if (item.type === 'rat') icon = "🐀"; 
+            
+            let alpha = 1.0;
+            if (item.expireAt - frameCount < 20) alpha = frameCount % 4 < 2 ? 1.0 : 0.2;
+            
+            pushUpright(icon, item.x * gridSize + 10 + ox, item.y * gridSize + 10 + oy, "22px Arial", "white", alpha);
+        });
+
+        // Universal Ghost Escape
+        let ghostAlpha = isDying ? Math.max(0, 1 - deathFrame/30) : 1.0;
+        if (isDying && ghostAlpha > 0) {
+            pushUpright("👻", snake[0].x * gridSize + 10, snake[0].y * gridSize + 10, "26px Arial", "white", ghostAlpha, true);
+        }
+
+        // Snake Rendering
+        const baseColor = document.getElementById('snake-color').value;
         const headShape = document.getElementById('snake-shape').value;
         
+        let blinkRainbow = false, blinkMagnet = false;
+        if (invincibilityActive > 0 && invincibilityActive < 20) blinkRainbow = frameCount % 4 < 2;
+        if (magnetActive > 0 && magnetActive < 20) blinkMagnet = frameCount % 4 < 2;
+
         snake.forEach((seg, i) => {
             const px = seg.x * gridSize; const py = seg.y * gridSize;
-            if (i === 0) {
-                ctx.fillStyle = "white";
-                if (['😀','😁','😉','🤩'].includes(headShape)) {
-                    ctx.font = "18px Arial"; ctx.fillText(headShape, px + 10, py + 12);
-                } else if (headShape === 'hexagon') {
-                    ctx.fillStyle = color; ctx.beginPath();
+            
+            let currentColor = baseColor;
+            if (invincibilityActive > 0 && !blinkRainbow) currentColor = `hsl(${(frameCount*10 + i*20) % 360}, 100%, 50%)`;
+
+            if (seg.deadEmoji) {
+                let sX = 0, sY = 0;
+                if (['ice','bomb','stone'].includes(deathReason)) { sX = (Math.random()-0.5)*4; sY = (Math.random()-0.5)*4; }
+                pushUpright(seg.deadEmoji, px + 10 + sX, py + 10 + sY, "20px Arial", "white", 1.0);
+            } else if (i === 0) {
+                let icon = headShape;
+                if (magnetActive > 0 && !blinkMagnet) icon = "🧲";
+
+                if (isDying && deathReason === 'ghost') {
+                    // hidden, ghost is already flying away above
+                } else if (['😀','😁','😉','🤩','😎','😈','🤖','🧲'].includes(icon)) {
+                    pushUpright(icon, px + 10, py + 12, "20px Arial", "white", 1.0);
+                } else if (icon === 'hexagon') {
+                    ctx.fillStyle = currentColor; ctx.beginPath();
                     for (let n = 0; n < 6; n++) ctx.lineTo(px + 10 + 9 * Math.cos(n * Math.PI / 3), py + 10 + 9 * Math.sin(n * Math.PI / 3));
-                    ctx.closePath(); ctx.fill();
-                } else if (headShape === 'circle') {
-                    ctx.fillStyle = color; ctx.beginPath(); ctx.arc(px+10, py+10, 9, 0, Math.PI*2); ctx.fill();
+                    ctx.closePath(); ctx.fill(); ctx.fillStyle="black"; ctx.fillRect(px+5, py+6, 3,3); ctx.fillRect(px+12, py+6, 3,3);
+                } else if (icon === 'circle') {
+                    ctx.fillStyle = currentColor; ctx.beginPath(); ctx.arc(px+10, py+10, 9, 0, Math.PI*2); ctx.fill();
+                    ctx.fillStyle="black"; ctx.fillRect(px+5, py+5, 3,3); ctx.fillRect(px+12, py+5, 3,3);
                 } else {
-                    ctx.fillStyle = color; ctx.fillRect(px+1, py+1, 18, 18);
+                    ctx.fillStyle = currentColor; ctx.fillRect(px+1, py+1, 18, 18);
+                    ctx.fillStyle="black"; ctx.fillRect(px+4, py+4, 3,3); ctx.fillRect(px+13, py+4, 3,3);
                 }
             } else {
-                ctx.fillStyle = color; ctx.globalAlpha = 0.6; ctx.fillRect(px+3, py+3, 14, 14); ctx.globalAlpha = 1.0;
+                ctx.fillStyle = currentColor; 
+                ctx.globalAlpha = Math.max(0.2, 1.0 - (i * (0.8 / snake.length))); 
+                ctx.fillRect(px+2, py+2, 16, 16); ctx.globalAlpha = 1.0;
             }
         });
-    }
 
-    function gameOver() {
-        gameRunning = false;
-        clearInterval(interval);
-        const mode = document.getElementById('wall-mode').value;
-        const sizeText = document.getElementById('arena-size').options[document.getElementById('arena-size').selectedIndex].text;
-        const skulls = document.getElementById('maze-complexity').value;
-        const color = document.getElementById('snake-color').value;
-        const shape = document.getElementById('snake-shape').value;
-        const speed = document.getElementById('snake-speed').value;
-        
-        document.getElementById('final-stats').innerHTML = `<b>Final Score: ${score}</b><br><br>Arena: ${sizeText}<br>Mode: ${mode.toUpperCase()}<br>Complexity: ${skulls} Skulls<br>Speed: ${speed}`;
-        overlay.style.display = 'flex';
-
-        if (typeof window.triggerDatabaseSave === 'function') {
-            window.triggerDatabaseSave({ score, mode, sizeText, skulls, color, shape, speed, innerWalls });
+        // Magnet Aura
+        if (magnetActive > 0 && !blinkMagnet && !isDying) {
+            ctx.strokeStyle = `rgba(0, 136, 255, ${0.3 + Math.sin(frameCount*0.5)*0.2})`;
+            ctx.lineWidth = 2; ctx.beginPath();
+            ctx.arc(snake[0].x * gridSize + 10, snake[0].y * gridSize + 10, 80, 0, Math.PI*2); ctx.stroke();
         }
+
+        // Particles
+        for (let i = particles.length - 1; i >= 0; i--) {
+            let p = particles[i];
+            ctx.fillStyle = p.color; ctx.globalAlpha = Math.max(0, p.life);
+            ctx.beginPath(); ctx.arc(p.x, p.y, p.size, 0, Math.PI*2); ctx.fill();
+            p.x += p.vx; p.y += p.vy; p.life -= 0.05;
+            if (p.life <= 0) particles.splice(i, 1);
+        }
+        ctx.globalAlpha = 1.0;
+        ctx.restore(); // END ARENA CONTEXT
+
+        // --- DRAW UPRIGHT QUEUE ---
+        uprightRenderQueue.forEach(item => {
+            let rad = arenaRot * Math.PI / 180;
+            let cx = item.ax - arenaSize/2; let cy = item.ay - arenaSize/2;
+            let rx = cx * Math.cos(rad) - cy * Math.sin(rad) + canvas.width/2;
+            let ry = cx * Math.sin(rad) + cy * Math.cos(rad) + canvas.height/2;
+            
+            // Special ghost escape adjustment (straight up on screen space)
+            if (item.isGhost) ry -= (deathFrame * 4); 
+
+            ctx.font = item.font; ctx.fillStyle = item.color; ctx.globalAlpha = item.alpha;
+            ctx.textAlign = "center"; ctx.textBaseline = "middle";
+            ctx.fillText(item.text, rx, ry);
+        });
+        ctx.globalAlpha = 1.0;
+
+        // COMPASS Ring
+        if (cfg.pro) {
+            ctx.fillStyle = "rgba(0, 240, 255, 0.9)"; ctx.font = "bold 28px Arial"; ctx.textAlign = "center"; ctx.textBaseline = "middle";
+            const dCompass = (txt, ax, ay) => {
+                let rad = arenaRot * Math.PI / 180; let cx = ax - arenaSize/2, cy = ay - arenaSize/2;
+                ctx.fillText(txt, cx*Math.cos(rad) - cy*Math.sin(rad) + canvas.width/2, cx*Math.sin(rad) + cy*Math.cos(rad) + canvas.height/2);
+            };
+            dCompass("N", arenaSize/2, -25); dCompass("S", arenaSize/2, arenaSize + 25);
+            dCompass("W", -25, arenaSize/2); dCompass("E", arenaSize + 25, arenaSize/2);
+        }
+
+        // Combo UI 
+        if (comboTimer > 0) {
+            ctx.fillStyle = "rgba(255, 215, 0, 0.9)"; ctx.font = "900 24px Arial"; ctx.textAlign = "left"; ctx.textBaseline = "top";
+            ctx.fillText(`COMBO x${combo.toFixed(1)}`, 20, 20);
+            ctx.fillStyle = "#333"; ctx.fillRect(20, 50, 150, 6);
+            ctx.fillStyle = "var(--success)"; ctx.fillRect(20, 50, 150 * (comboTimer/100), 6);
+        }
+
+        // Floating Texts
+        ctx.font = "bold 16px Arial"; ctx.textAlign = "center";
+        for (let i = floatingTexts.length - 1; i >= 0; i--) {
+            let ft = floatingTexts[i];
+            ctx.fillStyle = ft.color; ctx.globalAlpha = Math.max(0, ft.life);
+            let rad = arenaRot * Math.PI / 180; let cx = ft.x - arenaSize/2; let cy = ft.y - arenaSize/2;
+            let rx = cx * Math.cos(rad) - cy * Math.sin(rad) + canvas.width/2;
+            let ry = cx * Math.sin(rad) + cy * Math.cos(rad) + canvas.height/2;
+            ctx.fillText(ft.text, rx, ry);
+            ft.y -= 1.5; ft.life -= 0.02;
+            if (ft.life <= 0) floatingTexts.splice(i, 1);
+        }
+        ctx.globalAlpha = 1.0;
     }
 
-    function unlockAndReset() {
-        ui.classList.remove('frozen');
-        startBtn.disabled = false;
-        overlay.style.display = 'none';
-        setupBlankCanvas();
-    }
-
+    // --- HIGH-END INPUT QUEUE (Flawless Double Taps) ---
     window.addEventListener('keydown', e => {
-        if(["ArrowUp","ArrowDown","ArrowLeft","ArrowRight"].indexOf(e.code) > -1) e.preventDefault();
+        if(["ArrowUp","ArrowDown","ArrowLeft","ArrowRight"," "].indexOf(e.key) > -1) e.preventDefault();
         
-        if (!gameRunning) return;
-        if (changingDirection) return; // Prevent multiple turns in a single frame
-        
-        const isGoingUp = dy === -1;
-        const isGoingDown = dy === 1;
-        const isGoingRight = dx === 1;
-        const isGoingLeft = dx === -1;
+        if (e.key === " ") {
+            if (overlay.style.display === 'flex') { startGame(); return; }
+            if (startOverlay.style.display === 'flex') { startGame(); return; }
+            if (gameRunning && !isDying) { togglePause(); return; }
+        }
 
-        if (e.key === 'ArrowLeft' && !isGoingRight) { dx = -1; dy = 0; changingDirection = true; }
-        if (e.key === 'ArrowUp' && !isGoingDown) { dx = 0; dy = -1; changingDirection = true; }
-        if (e.key === 'ArrowRight' && !isGoingLeft) { dx = 1; dy = 0; changingDirection = true; }
-        if (e.key === 'ArrowDown' && !isGoingUp) { dx = 0; dy = 1; changingDirection = true; }
+        if (!gameRunning || isPaused || isDying) return;
+        
+        let sDx = 0, sDy = 0;
+        if (e.key === 'ArrowUp') { sDx = 0; sDy = -1; }
+        else if (e.key === 'ArrowDown') { sDx = 0; sDy = 1; }
+        else if (e.key === 'ArrowLeft') { sDx = -1; sDy = 0; }
+        else if (e.key === 'ArrowRight') { sDx = 1; sDy = 0; }
+        
+        if (sDx !== 0 || sDy !== 0) {
+            let currentSnappedRot = (Math.round(arenaRot / 90) * 90 % 360 + 360) % 360;
+            let rad = -currentSnappedRot * Math.PI / 180;
+            let lDx = Math.round(sDx * Math.cos(rad) - sDy * Math.sin(rad));
+            let lDy = Math.round(sDx * Math.sin(rad) + sDy * Math.cos(rad));
+            
+            let lastDx = inputQueue.length > 0 ? inputQueue[inputQueue.length-1].x : dx;
+            let lastDy = inputQueue.length > 0 ? inputQueue[inputQueue.length-1].y : dy;
+            
+            if (lDx !== -lastDx || lDy !== -lastDy) { 
+                if (inputQueue.length < 3) inputQueue.push({x: lDx, y: lDy}); 
+            }
+        }
     });
 
+    let touchX = null, touchY = null;
+    canvas.addEventListener('touchstart', e => { touchX = e.touches[0].clientX; touchY = e.touches[0].clientY; }, {passive: false});
+    canvas.addEventListener('touchmove', e => {
+        if (!touchX || !touchY || !gameRunning || isPaused || isDying) return;
+        e.preventDefault(); 
+        let upX = e.touches[0].clientX, upY = e.touches[0].clientY;
+        let diffX = touchX - upX, diffY = touchY - upY;
+        
+        let sDx = 0, sDy = 0;
+        if (Math.abs(diffX) > Math.abs(diffY)) sDx = diffX > 0 ? -1 : 1;
+        else sDy = diffY > 0 ? -1 : 1;
+
+        let currentSnappedRot = (Math.round(arenaRot / 90) * 90 % 360 + 360) % 360;
+        let rad = -currentSnappedRot * Math.PI / 180;
+        let lDx = Math.round(sDx * Math.cos(rad) - sDy * Math.sin(rad));
+        let lDy = Math.round(sDx * Math.sin(rad) + sDy * Math.cos(rad));
+
+        let lastDx = inputQueue.length > 0 ? inputQueue[inputQueue.length-1].x : dx;
+        let lastDy = inputQueue.length > 0 ? inputQueue[inputQueue.length-1].y : dy;
+        
+        if (lDx !== -lastDx || lDy !== -lastDy) { 
+            if (inputQueue.length < 3) inputQueue.push({x: lDx, y: lDy}); 
+        }
+        touchX = null; touchY = null;
+    }, {passive: false});
+
     startBtn.addEventListener('click', startGame);
-    document.getElementById('arena-size').addEventListener('change', setupBlankCanvas);
-    document.getElementById('wall-mode').addEventListener('change', setupBlankCanvas);
+    tryAgainBtn.addEventListener('click', startGame);
+    document.getElementById('arena-size').addEventListener('change', setupCanvas);
+    document.getElementById('wall-mode').addEventListener('change', setupCanvas);
 </script>
 
 <script id="database-engine">
@@ -387,12 +1039,13 @@
 
         function connectToDatabase() {
             if (window.supabaseClient) {
-                lbStatus.innerText = "Loading global ranks...";
+                lbStatus.style.display = 'none';
                 fetchLeaderboard();
             } else {
                 connectionAttempts++;
                 if (connectionAttempts > 15) {
-                    lbStatus.innerText = "Leaderboard Offline (Could not read js/supabase.js).";
+                    lbStatus.innerText = "Leaderboard Offline (Network Blocked).";
+                    lbStatus.style.display = 'block';
                     return;
                 }
                 setTimeout(connectToDatabase, 500); 
@@ -406,22 +1059,36 @@
                 if (error) throw error;
                 
                 if (!data || data.length === 0) {
-                    scoreboard.innerHTML = '<div style="padding:10px; color:#8b949e;">No scores yet.</div>';
+                    scoreboard.innerHTML = '<div style="padding:20px 10px; color:#8b949e; text-align:center;">No scores yet.<br><br><span style="color:var(--accent);">Become the first champion!</span></div>';
                     return;
                 }
 
-                scoreboard.innerHTML = data.map(entry => {
+                scoreboard.innerHTML = data.map((entry, index) => {
                     let user = entry.player_email ? String(entry.player_email).split('@')[0] : 'Guest';
-                    let mode = entry.border_mode ? String(entry.border_mode).toUpperCase() : 'N/A';
+                    let mode = entry.border_mode ? String(entry.border_mode) : 'N/A';
                     let size = entry.grid_size || 'Std';
                     let skulls = entry.skull_count != null ? entry.skull_count : '0';
                     let spd = entry.speed_level != null ? entry.speed_level : '?';
 
+                    let rankVisual = `<strong style="color:#fff;">${user}</strong>`;
+                    let borderStyle = 'border-bottom: 1px solid #222;';
+                    
+                    if (index === 0) {
+                        rankVisual = `<strong style="color:var(--gold); font-size:1.1rem; text-shadow: 0 0 10px rgba(255,215,0,0.5);">👑 ${user}</strong>`;
+                        borderStyle = 'border-bottom: 1px solid #222; border-left: 4px solid var(--gold); padding-left: 10px; background: rgba(255,215,0,0.05);';
+                    } else if (index === 1) {
+                        rankVisual = `<strong style="color:#C0C0C0;">🥈 ${user}</strong>`;
+                        borderStyle = 'border-bottom: 1px solid #222; border-left: 4px solid #C0C0C0; padding-left: 10px;';
+                    } else if (index === 2) {
+                        rankVisual = `<strong style="color:#CD7F32;">🥉 ${user}</strong>`;
+                        borderStyle = 'border-bottom: 1px solid #222; border-left: 4px solid #CD7F32; padding-left: 10px;';
+                    }
+
                     return `
-                    <div class="score-item">
-                        <strong>${user}</strong> 
-                        <span style="float:right; color:var(--success); font-weight:bold">${entry.final_score}</span>
-                        <div class="score-meta">${size} • ${mode} • ${skulls} Skulls • Spd: ${spd}</div>
+                    <div class="score-item" style="${borderStyle}">
+                        ${rankVisual} 
+                        <span style="float:right; color:var(--success); font-weight:900; font-size:1.1rem; text-shadow: 0 0 10px rgba(57,255,20,0.3);">${entry.final_score}</span>
+                        <div class="score-meta">${size} • ${mode} • ${skulls}🪨 • Lvl ${spd}</div>
                     </div>
                     `;
                 }).join('');
@@ -432,7 +1099,6 @@
 
         window.triggerDatabaseSave = async function(gameData) {
             if (!window.supabaseClient) return;
-            
             try {
                 let { error } = await window.supabaseClient.from('snake_scores').insert([{
                     player_email: 'vinothraja@example.com',
@@ -447,15 +1113,14 @@
                     obstacle_data: JSON.stringify(gameData.innerWalls)
                 }]);
                 
-                if (error) {
-                    console.error("Supabase Error Details:", error);
-                    return;
+                if (error && error.code === '42703') {
+                    await window.supabaseClient.from('snake_scores').insert([{
+                        player_email: 'vinothraja@example.com', game_name: 'Snake Pro', final_score: gameData.score
+                    }]);
                 }
                 
                 fetchLeaderboard(); 
-            } catch (err) { 
-                console.error('Critical Save Failure:', err); 
-            }
+            } catch (err) { console.error('Silent Save Failure:', err); }
         };
     });
 </script>
