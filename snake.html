@@ -14,17 +14,18 @@
             --danger: #ff003c; --success: #39ff14; --gold: #ffd700; --poison: #9d00ff;
             --magnet: #0088ff; --pro: #ff5e00; --ice: #00ffff; --bone: #e0e0e0;
         }
-        body, html { margin: 0; padding: 0; height: 100vh; overflow: hidden; background: var(--bg); color: white; font-family: 'Segoe UI', sans-serif; user-select: none; }
+        /* Mobile swipe locking */
+        body, html { margin: 0; padding: 0; height: 100vh; overflow: hidden; background: var(--bg); color: white; font-family: 'Segoe UI', sans-serif; user-select: none; overscroll-behavior: none; touch-action: none; }
         
         #main-layout {
             display: grid;
             grid-template-columns: 320px 1fr 340px; 
             height: 100vh; gap: 20px; 
             padding: 20px; box-sizing: border-box;
+            transition: grid-template-columns 0.3s ease;
         }
 
-        /* Left Panel - Fixed & Tightly Packed */
-        aside { background: var(--panel); padding: 15px; border-radius: 12px; display: flex; flex-direction: column; border: 1px solid #30363d; box-shadow: 0 10px 30px rgba(0,0,0,0.8); overflow: hidden; }
+        aside { background: var(--panel); padding: 15px; border-radius: 12px; display: flex; flex-direction: column; border: 1px solid #30363d; box-shadow: 0 10px 30px rgba(0,0,0,0.8); overflow: hidden; transition: transform 0.3s ease;}
         
         #ui-controls { display: flex; flex-direction: column; gap: 8px; flex-grow: 1; justify-content: flex-start; transition: opacity 0.3s;}
         .frozen { pointer-events: none; opacity: 0.4; filter: grayscale(1); }
@@ -42,13 +43,17 @@
 
         /* The Stage */
         #game-area { display: flex; align-items: center; justify-content: center; position: relative; background: #020202; border-radius: 12px; border: 2px solid #111; overflow: hidden; box-shadow: inset 0 0 100px rgba(0,0,0,1); transition: border-color 0.5s, box-shadow 0.5s; }
-        #canvas-wrapper { position: relative; display: flex; align-items: center; justify-content: center; width: 100%; height: 100%; }
-        canvas { background: transparent; display: block; z-index: 1;}
+        #canvas-wrapper { position: relative; display: flex; align-items: center; justify-content: center; width: 100%; height: 100%; overflow: hidden;}
+        canvas { background: transparent; display: block; z-index: 1; max-width: 100%; max-height: 100%; object-fit: contain; aspect-ratio: 1 / 1; }
+
+        /* Floating HUD Controls */
+        #hud-buttons { position: absolute; top: 15px; left: 15px; right: 15px; display: flex; justify-content: space-between; z-index: 20; pointer-events: none; }
+        .hud-btn { background: rgba(0,0,0,0.6); border: 1px solid #333; color: white; font-size: 1.2rem; padding: 8px 14px; border-radius: 6px; cursor: pointer; backdrop-filter: blur(4px); transition: 0.2s; pointer-events: auto; }
+        .hud-btn:hover { background: var(--accent); color: black; }
 
         .score-item { padding: 10px 0; border-bottom: 1px solid #222; font-size: 0.85rem; }
         .score-meta { color: #666; font-size: 0.7rem; margin-top: 4px; }
         
-        /* Overlays */
         .overlay-screen { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.85); display: flex; flex-direction: column; align-items: center; justify-content: center; display: none; z-index: 10; backdrop-filter: blur(8px); }
         
         .btn { background: var(--success); border: none; color: black; padding: 14px 40px; border-radius: 6px; cursor: pointer; font-weight: 900; font-size: 1.2rem; transition: 0.2s; text-transform: uppercase; letter-spacing: 2px; box-shadow: 0 0 15px rgba(57, 255, 20, 0.4); }
@@ -69,13 +74,32 @@
         }
         .shaking { animation: shake 0.4s cubic-bezier(.36,.07,.19,.97) none; }
         
-        /* Leaderboard Panel Layout */
         #right-panel { display: flex; flex-direction: column; height: 100%; }
         #score-board { overflow-y: auto; flex-grow: 1; padding-right: 5px; }
         #score-board::-webkit-scrollbar { width: 4px; }
         #score-board::-webkit-scrollbar-thumb { background: var(--accent); border-radius: 4px; }
 
         .legend-box { display:flex; gap:10px; font-size:0.75rem; text-align:left; background:#000; padding:10px; border-radius:6px; border:1px solid #333; line-height: 1.4;}
+
+        /* --- MOBILE MODE ARCHITECTURE --- */
+        .mobile-only { display: none !important; }
+        body.mobile-mode .mobile-only { display: block !important; }
+        body.mobile-mode .desktop-only { display: none !important; }
+
+        body.mobile-mode #main-layout { display: flex; padding: 0; margin: 0; width: 100vw; height: 100vh; }
+        body.mobile-mode #right-panel { display: none !important; }
+        
+        body.mobile-mode #game-area { width: 100vw; height: 100vh; border-radius: 0; border: none; flex-grow: 1; }
+        
+        body.mobile-mode #settings-panel {
+            position: fixed; bottom: 0; left: 0; width: 100vw; height: 85vh; /* Taller to fit Top 3 Leaderboard */
+            z-index: 5000; border-radius: 24px 24px 0 0; border: 2px solid var(--accent); border-bottom: none;
+            background: rgba(13, 17, 23, 0.98);
+            transform: translateY(100%); transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            display: flex; padding-bottom: 30px; box-sizing: border-box;
+        }
+        body.mobile-mode.show-mobile-config #settings-panel { transform: translateY(0%); }
+        body.mobile-mode #start-overlay, body.mobile-mode #overlay, body.mobile-mode #pause-overlay { z-index: 1000; }
     </style>
 </head>
 <body>
@@ -83,8 +107,16 @@
 <div id="main-layout">
     <aside id="settings-panel">
         <div class="nav-header">
-            <a href="dashboard.html" class="back-btn">&larr; Dashboard</a>
+            <a href="dashboard.html" class="back-btn desktop-only">&larr; Dashboard</a>
             <h3 style="margin:0; font-size: 0.9rem; color: var(--accent); letter-spacing: 1px;">CONFIG</h3>
+            <span class="mobile-only" onclick="closeMobileConfig()" style="font-size:20px; cursor:pointer; color:var(--danger);">✖</span>
+        </div>
+        
+        <div id="mobile-top-3" class="mobile-only" style="background: rgba(0,0,0,0.4); border: 1px solid #333; border-radius: 6px; padding: 8px; margin-bottom: 10px;">
+            <div style="font-size: 0.7rem; color: var(--accent); text-align: center; font-weight: bold; letter-spacing: 1px; margin-bottom: 6px;">🏆 TOP 3 CHAMPIONS</div>
+            <div id="mobile-top-3-content">
+                <div style="text-align:center; color:#666; font-size:0.75rem;">Establishing uplink...</div>
+            </div>
         </div>
         
         <div id="ui-controls">
@@ -141,6 +173,8 @@
         </div>
 
         <div class="bottom-anchors">
+            <button class="btn mobile-only" onclick="closeMobileConfig()" style="background:var(--accent); color:black; margin-bottom:10px; width: 100%; box-sizing: border-box; padding: 12px; font-size:1rem;">✅ DONE / PROCEED</button>
+            
             <div style="background:#000; border-radius:6px; text-align:center; padding: 12px; border: 1px solid #222;">
                 <div style="color: #666; font-size: 0.7rem; text-transform: uppercase; letter-spacing: 2px;">Live Score</div>
                 <div id="score-val" style="font-size:2.4rem; font-weight:900; color:var(--success); text-shadow: 0 0 20px rgba(57,255,20,0.5);">0</div>
@@ -149,15 +183,26 @@
     </aside>
 
     <main id="game-area">
+        
+        <div id="hud-buttons">
+            <button class="hud-btn desktop-only" onclick="toggleConfig()" title="Game Settings">⚙️</button>
+            <div>
+                <button class="hud-btn desktop-only" onclick="toggleMobileMode()" title="Toggle Mobile View" style="margin-right: 10px;">📱</button>
+                <button class="hud-btn" onclick="toggleFullScreen()" title="Full Screen" style="margin-right: 10px;">⛶</button>
+                <button class="hud-btn desktop-only" onclick="toggleLeaderboard()" title="Leaderboard">🏆</button>
+            </div>
+        </div>
+
         <div id="canvas-wrapper">
             <canvas id="gameCanvas"></canvas>
         </div>
         
         <div id="start-overlay" class="overlay-screen" style="display: flex;">
             <button id="start-btn" class="btn">START GAME</button>
+            <button class="btn mobile-only" onclick="openMobileConfig()" style="background:#30363d; color:white; margin-top:15px; padding: 10px 30px; font-size:1rem;">⚙️ CONFIG</button>
             <p style="color: #888; margin-top: 15px; font-size: 0.9rem; letter-spacing: 1px;">PRESS <strong style="color:white">SPACE</strong> TO BEGIN</p>
             
-            <div class="legend-box" style="margin-top: 30px; background: rgba(0,0,0,0.6); padding: 15px;">
+            <div class="legend-box desktop-only" style="margin-top: 30px; background: rgba(0,0,0,0.6); padding: 15px;">
                 <div style="flex:1">
                     <strong style="color:var(--success)">GOOD FOOD</strong><br>
                     🌟 Jackpot (Combo+Invincible)<br>
@@ -182,14 +227,15 @@
         </div>
 
         <div id="overlay" class="overlay-screen" style="display: none;">
-            <h1 id="death-title" style="color:var(--danger); margin-bottom:5px; font-size: 3.5rem; text-shadow: 0 0 30px var(--danger); font-weight: 900; letter-spacing: 2px; text-transform: uppercase;">CRASHED!</h1>
+            <h1 id="death-title" style="color:var(--danger); margin-bottom:5px; font-size: 3.5rem; text-shadow: 0 0 30px var(--danger); font-weight: 900; letter-spacing: 2px; text-transform: uppercase; text-align: center;">CRASHED!</h1>
             <p id="final-stats" style="text-align: center; line-height: 1.8; color: #fff; font-size: 1.1rem; background: rgba(0,0,0,0.8); padding: 20px; border-radius: 8px; border: 1px solid var(--danger);"></p>
             <button id="try-again-btn" class="btn" style="background:var(--accent); color:black; margin-top:20px; box-shadow: 0 0 20px rgba(0,240,255,0.4);">TRY AGAIN</button>
+            <button class="btn mobile-only" onclick="openMobileConfig()" style="background:#30363d; color:white; margin-top:15px; padding: 10px 30px; font-size:1rem;">⚙️ CONFIG</button>
             <p style="color: #888; margin-top: 15px; font-size: 0.9rem; letter-spacing: 1px;">PRESS <strong style="color:white">SPACE</strong> TO RESTART</p>
         </div>
     </main>
 
-    <aside id="right-panel">
+    <aside id="right-panel" class="desktop-only">
         <h4 style="margin:0 0 10px 0; border-bottom: 1px solid #30363d; padding-bottom: 10px; color: var(--accent); display: flex; justify-content: space-between; align-items: flex-end;">
             <span style="font-size: 1rem; letter-spacing: 1px;">PRO RANKS</span>
             <span style="font-size: 0.7rem; color: #666;">TOP 15</span>
@@ -199,8 +245,8 @@
         </div>
         
         <div style="margin-top: 10px; padding-top: 10px; border-top: 1px solid #30363d;">
-            <div style="font-size: 0.7rem; color: #888; margin-bottom: 5px;">
-                <strong style="color:var(--accent)">CONTROLS:</strong> Arrows/Swipe move. Space=Pause.
+            <div style="font-size: 0.7rem; color: #888; margin-bottom: 5px; text-align: center; background: #000; padding: 6px; border-radius: 4px;">
+                <strong style="color:var(--accent)">COMMANDS:</strong> Arrows/Swipe move. Spacebar to Pause.
             </div>
             <div class="legend-box">
                 <div style="flex:1">
@@ -224,6 +270,41 @@
     const overlay = document.getElementById('overlay');
     const pauseOverlay = document.getElementById('pause-overlay');
     const gameArea = document.getElementById('game-area');
+
+    // --- MOBILE HUD LOGIC ---
+    function toggleMobileMode(autoInit = false) {
+        let isMobile = document.body.classList.contains('mobile-mode');
+        if (!isMobile) {
+            document.body.classList.add('mobile-mode');
+            if(!autoInit && document.documentElement.requestFullscreen) document.documentElement.requestFullscreen().catch(e=>{});
+            openMobileConfig();
+        } else {
+            document.body.classList.remove('mobile-mode');
+            if(!autoInit && document.exitFullscreen) document.exitFullscreen().catch(e=>{});
+            closeMobileConfig();
+        }
+        setTimeout(() => window.dispatchEvent(new Event('resize')), 100);
+    }
+    function openMobileConfig() { if(document.body.classList.contains('mobile-mode')) document.body.classList.add('show-mobile-config'); }
+    function closeMobileConfig() { document.body.classList.remove('show-mobile-config'); }
+
+    let configVisible = true, lbVisible = true;
+    function toggleConfig() {
+        configVisible = !configVisible; document.getElementById('settings-panel').style.display = configVisible ? 'flex' : 'none'; updateGrid();
+    }
+    function toggleLeaderboard() {
+        lbVisible = !lbVisible; document.getElementById('right-panel').style.display = lbVisible ? 'flex' : 'none'; updateGrid();
+    }
+    function toggleFullScreen() {
+        if (!document.fullscreenElement) { document.documentElement.requestFullscreen().catch(err => { console.log(`Error: ${err.message}`); }); } 
+        else { if (document.exitFullscreen) document.exitFullscreen(); }
+    }
+    function updateGrid() {
+        if (window.innerWidth > 900) {
+            let left = configVisible ? '320px' : '0px'; let right = lbVisible ? '340px' : '0px';
+            document.getElementById('main-layout').style.gridTemplateColumns = `${left} 1fr ${right}`;
+        }
+    }
 
     // State Variables
     let gridSize = 20, tileCount = 20, arenaSize = 400; 
@@ -249,7 +330,7 @@
     let magnetActive = 0, invincibilityActive = 0;
 
     // PRO Mode State
-    let cfg = { sound: true, pro: true, particles: true, grid: true };
+    let cfg = { sound: true, pro: true };
     let arenaRot = 0, targetArenaRot = 0, startArenaRot = 0;
     let proState = 'IDLE'; 
     let nextRotationFrame = 0, telegraphFramesLeft = 0;
@@ -311,7 +392,12 @@
         }
     }
 
-    document.addEventListener("DOMContentLoaded", setupCanvas);
+    document.addEventListener("DOMContentLoaded", () => {
+        setupCanvas();
+        if (window.innerWidth <= 900 || /Mobi|Android/i.test(navigator.userAgent)) {
+            toggleMobileMode(true);
+        }
+    });
 
     function setupCanvas() {
         arenaSize = parseInt(document.getElementById('arena-size').value) || 400;
@@ -412,6 +498,7 @@
         cfg.sound = document.getElementById('t-sound').checked;
         cfg.pro = document.getElementById('t-pro').checked;
         
+        closeMobileConfig(); 
         ui.classList.add('frozen'); 
         startOverlay.style.display = 'none';
         overlay.style.display = 'none'; 
@@ -515,7 +602,7 @@
         gameRunning = false; clearInterval(interval);
         canvas.classList.remove('shaking'); void canvas.offsetWidth; canvas.classList.add('shaking');
         
-        ui.classList.remove('frozen'); // UNFREEZE SETTINGS MENU HERE
+        ui.classList.remove('frozen'); 
 
         document.getElementById('death-title').innerText = titleMsg;
         const modeText = document.getElementById('wall-mode').value.toUpperCase() + (cfg.pro ? " 🌪️PRO" : "");
@@ -529,6 +616,7 @@
                 Arena: <b>${sizeText}</b> | Speed: <b>Lvl ${speed}</b>
             `;
             overlay.style.display = 'flex';
+            if(document.body.classList.contains('mobile-mode')) openMobileConfig(); 
         }, 500);
 
         if (typeof window.triggerDatabaseSave === 'function' && cfg.pro) {
@@ -546,7 +634,6 @@
 
         frameCount++;
         
-        // Apply Input Queue
         if (inputQueue.length > 0) {
             let nextMove = inputQueue.shift();
             dx = nextMove.x; dy = nextMove.y;
@@ -638,7 +725,7 @@
 
             activeItems.forEach(item => {
                 if (['gold', 'magnet', 'rat', 'mushroom'].includes(item.type) && Math.abs(item.x - hx) < 5 && Math.abs(item.y - hy) < 5) {
-                    if (item.type === 'mushroom' && invincibilityActive <= 0) return; // Do not pull poison
+                    if (item.type === 'mushroom' && invincibilityActive <= 0) return; 
 
                     if (item.x < hx) item.x = Math.min(hx, item.x + pullSpeed);
                     else if (item.x > hx) item.x = Math.max(hx, item.x - pullSpeed);
@@ -734,7 +821,7 @@
                         score += 50; playSound('gold'); popupText(head.x, head.y, "SUPER SHROOM!", "var(--success)");
                         snake.push({...snake[snake.length-1]}); snake.push({...snake[snake.length-1]}); grew = true; 
                     } else { 
-                        score = Math.max(0, score - 20); playSound('poison'); spawnParticles(head.x, head.y, 'var(--poison)', 20); popupText(head.x, head.y, "-20", "var(--poison)");
+                        score = Math.max(0, score - 20); playSound('poison'); popupText(head.x, head.y, "-20", "var(--poison)");
                         combo = 1; comboTimer = 0;
                         if (snake.length > 3) snake.pop(); if (snake.length > 3) snake.pop();
                         grew = false; snake.pop(); 
@@ -756,7 +843,7 @@
         if (selfHitIdx > -1) {
             if (invincibilityActive > 0) {
                 snake = snake.slice(0, selfHitIdx); 
-                playSound('cut'); spawnParticles(head.x, head.y, '#fff', 30); popupText(head.x, head.y, "TAIL CUT!", "#fff");
+                playSound('cut'); popupText(head.x, head.y, "TAIL CUT!", "#fff");
                 if (snake.length < 2) return initDeath('self'); 
             } else return initDeath('self');
         }
@@ -966,9 +1053,13 @@
         ctx.globalAlpha = 1.0;
     }
 
-    // --- HIGH-END INPUT QUEUE (Flawless Double Taps) ---
+    // --- HIGH-END INPUT QUEUE ---
+    const gameAreaEl = document.getElementById('game-area');
+    
     window.addEventListener('keydown', e => {
-        if(["ArrowUp","ArrowDown","ArrowLeft","ArrowRight"," "].indexOf(e.key) > -1) e.preventDefault();
+        if(["ArrowUp","ArrowDown","ArrowLeft","ArrowRight"," "].indexOf(e.key) > -1) {
+            if(e.target.tagName !== 'INPUT' && e.target.tagName !== 'SELECT') e.preventDefault();
+        }
         
         if (e.key === " ") {
             if (overlay.style.display === 'flex') { startGame(); return; }
@@ -1000,10 +1091,16 @@
     });
 
     let touchX = null, touchY = null;
-    canvas.addEventListener('touchstart', e => { touchX = e.touches[0].clientX; touchY = e.touches[0].clientY; }, {passive: false});
-    canvas.addEventListener('touchmove', e => {
+    gameAreaEl.addEventListener('touchstart', e => { 
+        if (e.target.closest('.overlay-screen')) return;
+        touchX = e.touches[0].clientX; touchY = e.touches[0].clientY; 
+    }, {passive: false});
+    
+    gameAreaEl.addEventListener('touchmove', e => {
+        if (e.target.closest('.overlay-screen')) return;
         if (!touchX || !touchY || !gameRunning || isPaused || isDying) return;
         e.preventDefault(); 
+        
         let upX = e.touches[0].clientX, upY = e.touches[0].clientY;
         let diffX = touchX - upX, diffY = touchY - upY;
         
@@ -1060,9 +1157,11 @@
                 
                 if (!data || data.length === 0) {
                     scoreboard.innerHTML = '<div style="padding:20px 10px; color:#8b949e; text-align:center;">No scores yet.<br><br><span style="color:var(--accent);">Become the first champion!</span></div>';
+                    document.getElementById('mobile-top-3-content').innerHTML = '<div style="text-align:center; color:#8b949e; font-size:0.75rem;">No scores yet.</div>';
                     return;
                 }
 
+                // Desktop Scoreboard (Top 15)
                 scoreboard.innerHTML = data.map((entry, index) => {
                     let user = entry.player_email ? String(entry.player_email).split('@')[0] : 'Guest';
                     let mode = entry.border_mode ? String(entry.border_mode) : 'N/A';
@@ -1092,8 +1191,24 @@
                     </div>
                     `;
                 }).join('');
+
+                // Mobile Leaderboard (Top 3)
+                const top3 = data.slice(0, 3);
+                document.getElementById('mobile-top-3-content').innerHTML = top3.map((entry, index) => {
+                    let user = entry.player_email ? String(entry.player_email).split('@')[0] : 'Guest';
+                    let medals = ['👑', '🥈', '🥉'];
+                    let colors = ['var(--gold)', '#C0C0C0', '#CD7F32'];
+                    return `
+                    <div style="display:flex; justify-content:space-between; align-items:center; font-size: 0.8rem; padding: 4px 0; border-bottom: ${index < top3.length - 1 ? '1px dashed #222' : 'none'};">
+                        <strong style="color:${colors[index]}; text-shadow: 0 0 5px rgba(255,255,255,0.2);">${medals[index]} ${user}</strong>
+                        <span style="color:var(--success); font-weight:bold;">${entry.final_score}</span>
+                    </div>
+                    `;
+                }).join('');
+
             } catch (err) { 
                 scoreboard.innerHTML = `<div style="padding:10px; color:var(--danger)">Offline: Unable to load scores.</div>`; 
+                document.getElementById('mobile-top-3-content').innerHTML = '<div style="text-align:center; color:var(--danger); font-size:0.75rem;">Offline</div>';
             }
         }
 
