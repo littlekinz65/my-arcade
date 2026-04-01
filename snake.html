@@ -183,6 +183,9 @@
     let food = {x: -10, y: -10}; 
     let innerWalls = []; 
     let dx = 1, dy = 0, score = 0, interval, gameRunning = false;
+    
+    // NEW FLAG: Prevents rapid double-keypress deaths
+    let changingDirection = false;
 
     document.addEventListener("DOMContentLoaded", () => {
         setupBlankCanvas();
@@ -241,6 +244,7 @@
         spawnFood();
         
         dx = 1; dy = 0; score = 0;
+        changingDirection = false;
         document.getElementById('score-val').innerText = "0";
 
         draw();
@@ -255,6 +259,10 @@
 
     function update() {
         if (!gameRunning) return;
+        
+        // Unlock direction change for this new frame
+        changingDirection = false;
+        
         const head = {x: snake[0].x + dx, y: snake[0].y + dy};
         const wallMode = document.getElementById('wall-mode').value;
 
@@ -268,10 +276,14 @@
         }
 
         if (innerWalls.some(w => w.x === head.x && w.y === head.y)) return gameOver();
-        if (snake.some(s => s.x === head.x && s.y === head.y)) return gameOver();
+        
+        // Edge case fix: Ignore the very tip of the tail for self-collision since it will move out of the way
+        const isEating = (head.x === food.x && head.y === food.y);
+        const bodyToCheck = isEating ? snake : snake.slice(0, -1);
+        if (bodyToCheck.some(s => s.x === head.x && s.y === head.y)) return gameOver();
 
         snake.unshift(head);
-        if (head.x === food.x && head.y === food.y) {
+        if (isEating) {
             score += 10;
             document.getElementById('score-val').innerText = score;
             spawnFood();
@@ -347,12 +359,19 @@
 
     window.addEventListener('keydown', e => {
         if(["ArrowUp","ArrowDown","ArrowLeft","ArrowRight"].indexOf(e.code) > -1) e.preventDefault();
+        
         if (!gameRunning) return;
-        const moves = { 'ArrowUp': [0, -1], 'ArrowDown': [0, 1], 'ArrowLeft': [-1, 0], 'ArrowRight': [1, 0] };
-        if (moves[e.key]) {
-            const [newDx, newDy] = moves[e.key];
-            if (newDx !== -dx && newDy !== -dy) { dx = newDx; dy = newDy; }
-        }
+        if (changingDirection) return; // Prevent multiple turns in a single frame
+        
+        const isGoingUp = dy === -1;
+        const isGoingDown = dy === 1;
+        const isGoingRight = dx === 1;
+        const isGoingLeft = dx === -1;
+
+        if (e.key === 'ArrowLeft' && !isGoingRight) { dx = -1; dy = 0; changingDirection = true; }
+        if (e.key === 'ArrowUp' && !isGoingDown) { dx = 0; dy = -1; changingDirection = true; }
+        if (e.key === 'ArrowRight' && !isGoingLeft) { dx = 1; dy = 0; changingDirection = true; }
+        if (e.key === 'ArrowDown' && !isGoingUp) { dx = 0; dy = 1; changingDirection = true; }
     });
 
     startBtn.addEventListener('click', startGame);
@@ -383,7 +402,6 @@
 
         async function fetchLeaderboard() {
             try {
-                // IMPORTANT: Fetching from the NEW table 'snake_scores'
                 const { data, error } = await window.supabaseClient.from('snake_scores').select('*').order('final_score', { ascending: false }).limit(15);
                 if (error) throw error;
                 
@@ -416,7 +434,6 @@
             if (!window.supabaseClient) return;
             
             try {
-                // IMPORTANT: Inserting into the NEW table 'snake_scores' with NEW column names
                 let { error } = await window.supabaseClient.from('snake_scores').insert([{
                     player_email: 'vinothraja@example.com',
                     game_name: 'Snake Pro',
@@ -431,7 +448,6 @@
                 }]);
                 
                 if (error) {
-                    alert(`Supabase Error: ${error.message}\n\nMake sure your new 'snake_scores' table exists and has RLS disabled!`);
                     console.error("Supabase Error Details:", error);
                     return;
                 }
