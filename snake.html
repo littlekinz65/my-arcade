@@ -47,7 +47,7 @@
         canvas { background: transparent; display: block; z-index: 1; max-width: 100%; max-height: 100%; object-fit: contain; aspect-ratio: 1 / 1; }
 
         /* Floating HUD Controls */
-        #hud-buttons { position: absolute; top: 15px; left: 15px; right: 15px; display: flex; justify-content: space-between; z-index: 20; pointer-events: none; }
+        #hud-buttons { position: absolute; top: 15px; left: 15px; right: 15px; display: flex; justify-content: space-between; align-items: flex-start; z-index: 20; pointer-events: none; }
         .hud-btn { background: rgba(0,0,0,0.6); border: 1px solid #333; color: white; font-size: 1.2rem; padding: 8px 14px; border-radius: 6px; cursor: pointer; backdrop-filter: blur(4px); transition: 0.2s; pointer-events: auto; }
         .hud-btn:hover { background: var(--accent); color: black; }
 
@@ -92,7 +92,7 @@
         body.mobile-mode #game-area { width: 100vw; height: 100vh; border-radius: 0; border: none; flex-grow: 1; }
         
         body.mobile-mode #settings-panel {
-            position: fixed; bottom: 0; left: 0; width: 100vw; height: 85vh; /* Taller to fit Top 3 Leaderboard */
+            position: fixed; bottom: 0; left: 0; width: 100vw; height: 85vh;
             z-index: 5000; border-radius: 24px 24px 0 0; border: 2px solid var(--accent); border-bottom: none;
             background: rgba(13, 17, 23, 0.98);
             transform: translateY(100%); transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
@@ -185,8 +185,13 @@
     <main id="game-area">
         
         <div id="hud-buttons">
-            <button class="hud-btn desktop-only" onclick="toggleConfig()" title="Game Settings">⚙️</button>
-            <div>
+            <div style="flex:1; display:flex; justify-content:flex-start;">
+                <button class="hud-btn desktop-only" onclick="toggleConfig()" title="Game Settings">⚙️</button>
+            </div>
+            <div style="flex:1; display:flex; justify-content:center; align-items:flex-start; pointer-events: auto;">
+                <div id="mobile-score-val" class="mobile-only" style="color:var(--success); font-weight:900; font-size:1.8rem; text-shadow: 0 0 10px rgba(57,255,20,0.5); background: rgba(0,0,0,0.4); padding: 2px 15px; border-radius: 12px; border: 1px solid #222;">0</div>
+            </div>
+            <div style="flex:1; display:flex; justify-content:flex-end;">
                 <button class="hud-btn desktop-only" onclick="toggleMobileMode()" title="Toggle Mobile View" style="margin-right: 10px;">📱</button>
                 <button class="hud-btn" onclick="toggleFullScreen()" title="Full Screen" style="margin-right: 10px;">⛶</button>
                 <button class="hud-btn desktop-only" onclick="toggleLeaderboard()" title="Leaderboard">🏆</button>
@@ -313,10 +318,7 @@
     let changingDirection = false, frameCount = 0, tickDelayMs = 100;
     let dashOffset = 0; 
     
-    // Pro-Level Input Queue
     let inputQueue = [];
-
-    // Death Animations
     let isDying = false, deathReason = "", deathFrame = 0;
 
     // Entities
@@ -419,6 +421,8 @@
         
         arenaRot = 0; targetArenaRot = 0; startArenaRot = 0; score = 0;
         document.getElementById('score-val').innerText = "0";
+        if(document.getElementById('mobile-score-val')) document.getElementById('mobile-score-val').innerText = "0";
+        
         snake = []; innerWalls = []; activeItems = []; particles = []; floatingTexts = [];
         normalFood = {x:-1, y:-1, emoji: '🪲'}; inputQueue = [];
         
@@ -522,6 +526,7 @@
         nextRotationFrame = calculateNextRotation();
 
         document.getElementById('score-val').innerText = "0";
+        if(document.getElementById('mobile-score-val')) document.getElementById('mobile-score-val').innerText = "0";
 
         draw();
         gameRunning = true; isPaused = false;
@@ -843,7 +848,7 @@
         if (selfHitIdx > -1) {
             if (invincibilityActive > 0) {
                 snake = snake.slice(0, selfHitIdx); 
-                playSound('cut'); popupText(head.x, head.y, "TAIL CUT!", "#fff");
+                playSound('cut'); spawnParticles(head.x, head.y, '#fff', 30); popupText(head.x, head.y, "TAIL CUT!", "#fff");
                 if (snake.length < 2) return initDeath('self'); 
             } else return initDeath('self');
         }
@@ -853,6 +858,7 @@
 
         spawnItems();
         document.getElementById('score-val').innerText = score;
+        if(document.getElementById('mobile-score-val')) document.getElementById('mobile-score-val').innerText = score;
         draw();
     }
 
@@ -1196,12 +1202,20 @@
                 const top3 = data.slice(0, 3);
                 document.getElementById('mobile-top-3-content').innerHTML = top3.map((entry, index) => {
                     let user = entry.player_email ? String(entry.player_email).split('@')[0] : 'Guest';
+                    let mode = entry.border_mode ? String(entry.border_mode) : 'N/A';
+                    let size = entry.grid_size || 'Std';
+                    let skulls = entry.skull_count != null ? entry.skull_count : '0';
+                    let spd = entry.speed_level != null ? entry.speed_level : '?';
                     let medals = ['👑', '🥈', '🥉'];
                     let colors = ['var(--gold)', '#C0C0C0', '#CD7F32'];
+                    
                     return `
-                    <div style="display:flex; justify-content:space-between; align-items:center; font-size: 0.8rem; padding: 4px 0; border-bottom: ${index < top3.length - 1 ? '1px dashed #222' : 'none'};">
-                        <strong style="color:${colors[index]}; text-shadow: 0 0 5px rgba(255,255,255,0.2);">${medals[index]} ${user}</strong>
-                        <span style="color:var(--success); font-weight:bold;">${entry.final_score}</span>
+                    <div style="padding: 6px 0; border-bottom: ${index < top3.length - 1 ? '1px dashed #222' : 'none'};">
+                        <div style="display:flex; justify-content:space-between; align-items:center; font-size: 0.85rem;">
+                            <strong style="color:${colors[index]}; text-shadow: 0 0 5px rgba(255,255,255,0.2);">${medals[index]} ${user}</strong>
+                            <span style="color:var(--success); font-weight:bold;">${entry.final_score}</span>
+                        </div>
+                        <div style="color: #666; font-size: 0.65rem; margin-top: 2px; text-align: left;">${size} • ${mode} • ${skulls}🪨 • Lvl ${spd}</div>
                     </div>
                     `;
                 }).join('');
