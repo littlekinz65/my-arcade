@@ -4,15 +4,27 @@ const mySupabase = window.supabaseClient;
 const display = document.getElementById('calc-display');
 const historyList = document.getElementById('history-list');
 
-// Variables to remember what the user is typing
 let currentInput = '';
 let previousInput = '';
 let operator = undefined;
 let userEmail = '';
 
-// 1. MATH LOGIC
+// 1. THE AUTH GUARD
+async function checkAuth() {
+    const { data: { session }, error } = await mySupabase.auth.getSession();
+    
+    if (error || !session) {
+        window.location.href = 'index.html'; // Kick out unauthorized users
+    } else {
+        // Save the active user's email so we can use it for calculations
+        userEmail = session.user.email;
+        loadHistory(); 
+    }
+}
+
+// MATH LOGIC
 function appendNumber(number) {
-    if (number === '.' && currentInput.includes('.')) return; // Prevent double decimals
+    if (number === '.' && currentInput.includes('.')) return; 
     currentInput = currentInput.toString() + number.toString();
     updateDisplay();
 }
@@ -45,7 +57,6 @@ async function compute() {
     
     if (isNaN(prev) || isNaN(current)) return;
 
-    // Do the actual math based on the chosen operator
     switch (operator) {
         case '+': computation = prev + current; break;
         case '-': computation = prev - current; break;
@@ -54,7 +65,6 @@ async function compute() {
         default: return;
     }
 
-    // Create a string like "5 + 5 = 10"
     const equationString = `${prev} ${operator} ${current} = ${computation}`;
     
     currentInput = computation;
@@ -62,57 +72,47 @@ async function compute() {
     previousInput = '';
     updateDisplay();
 
-    // Send it to the database!
     await saveCalculation(equationString);
 }
 
-// 2. DATABASE LOGIC
-
+// DATABASE LOGIC
 async function saveCalculation(equation) {
-    if (!userEmail) return; // Don't save if no one is logged in
+    if (!userEmail) return; 
 
     const { error } = await mySupabase.from('calculations').insert([
         { user_email: userEmail, equation: equation }
     ]);
 
     if (!error) {
-        loadHistory(); // Refresh the list on the screen
+        loadHistory(); 
     }
 }
 
 async function loadHistory() {
-    // Grab the current logged-in user
-    const { data: { user } } = await mySupabase.auth.getUser();
-    
-    if (user) {
-        userEmail = user.email;
+    if (!userEmail) return;
+
+    const { data, error } = await mySupabase
+        .from('calculations')
+        .select('*')
+        .eq('user_email', userEmail)
+        .order('created_at', { ascending: false });
+
+    if (!error) {
+        historyList.innerHTML = ''; 
         
-        // Ask Supabase for all calculations by this user, ordered by newest first
-        const { data, error } = await mySupabase
-            .from('calculations')
-            .select('*')
-            .eq('user_email', userEmail)
-            .order('created_at', { ascending: false });
-
-        if (!error) {
-            // Clear the "Loading..." text
-            historyList.innerHTML = ''; 
-            
-            if (data.length === 0) {
-                historyList.innerHTML = '<p style="font-size: 14px; color: #888;">No history yet.</p>';
-                return;
-            }
-
-            // Loop through the data and create HTML for each row
-            data.forEach(row => {
-                const p = document.createElement('div');
-                p.className = 'history-item';
-                p.innerText = row.equation;
-                historyList.appendChild(p);
-            });
+        if (data.length === 0) {
+            historyList.innerHTML = '<p style="font-size: 14px; color: #888;">No history yet.</p>';
+            return;
         }
+
+        data.forEach(row => {
+            const p = document.createElement('div');
+            p.className = 'history-item';
+            p.innerText = row.equation;
+            historyList.appendChild(p);
+        });
     }
 }
 
-// When the page first loads, fetch the history!
-loadHistory();
+// Run the Auth Guard immediately when the page loads
+checkAuth();
