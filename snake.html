@@ -1135,10 +1135,22 @@
 </script>
 
 <script id="database-engine">
-    document.addEventListener("DOMContentLoaded", () => {
+    document.addEventListener("DOMContentLoaded", async () => {
         const scoreboard = document.getElementById('score-board');
         const lbStatus = document.getElementById('leaderboard-status');
         let connectionAttempts = 0;
+
+        // --- THE AUTH GUARD FOR SNAKE PRO ---
+        let activeSession = null;
+        if (window.supabaseClient) {
+            const { data: { session } } = await window.supabaseClient.auth.getSession();
+            if (!session) {
+                // If they aren't logged in, kick them out
+                window.location.href = 'index.html'; 
+                return;
+            }
+            activeSession = session;
+        }
 
         function connectToDatabase() {
             if (window.supabaseClient) {
@@ -1227,10 +1239,13 @@
         }
 
         window.triggerDatabaseSave = async function(gameData) {
-            if (!window.supabaseClient) return;
+            // Check that we have a client AND a logged in user
+            if (!window.supabaseClient || !activeSession) return;
+            
             try {
                 let { error } = await window.supabaseClient.from('snake_scores').insert([{
-                    player_email: 'vinothraja@example.com',
+                    // NO MORE HARDCODED EMAIL! We dynamically grab the logged in user's email:
+                    player_email: activeSession.user.email,
                     game_name: 'Snake Pro',
                     final_score: gameData.score,
                     body_hex: gameData.color,
@@ -1244,7 +1259,7 @@
                 
                 if (error && error.code === '42703') {
                     await window.supabaseClient.from('snake_scores').insert([{
-                        player_email: 'vinothraja@example.com', game_name: 'Snake Pro', final_score: gameData.score
+                        player_email: activeSession.user.email, game_name: 'Snake Pro', final_score: gameData.score
                     }]);
                 }
                 
